@@ -5,10 +5,11 @@
   :licence "BSD"
   :serial t
   :default-component-class cl-source-file
-  :depends-on (parser-combinators cxml-rng)
+  :depends-on (parser-combinators cxml-stp cxml-rng)
   :components
   ((:static-file "README.md")
    (:static-file "COPYRIGHT")
    (:file "package")
+   (:file "utilities")
    (:file "vcard")
    (:file "parse")))
