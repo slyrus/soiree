@@ -28,7 +28,7 @@
 
 (defun qsafe-char-p (char)
   (let ((code (char-code char)))
-    (or (wsp-p char) 
+    (or (wsp-p char)
         (= code #x21)
         (<= #x23 code #x7e)
         (<= #x80 code #xff))))
@@ -38,7 +38,7 @@
 
 (defun safe-char-p (char)
   (let ((code (char-code char)))
-    (or (wsp-p char) 
+    (or (wsp-p char)
         (= code #x21)
         (<= #x23 code #x39)
         (<= #x3c code #x7e)
@@ -55,7 +55,7 @@
 
 (defun value-char-p (char)
   (let ((code (char-code char)))
-    (or (wsp-p char) 
+    (or (wsp-p char)
         (<= #x21 code #x7e)
         (<= #x80 code #xff))))
 
@@ -130,8 +130,16 @@
   (between? (choices (vchar?) (wsp?) (non-ascii?))
             1 nil 'string))
 
-(defun name? () 
+(defun name? ()
   (between? (alphanum-or-dash?) 1 nil 'string))
+
+(defun long-line-extension? ()
+  (named-seq?
+   #\Return
+   #\Newline
+   (wsp?)
+   (<- value (value?))
+   value))
 
 (defun content-line? (&optional name)
   ;; [group "."] name *(";" param) ":" value CRLF
@@ -146,9 +154,10 @@
                       param)))
    ":"
    (<- value (value?))
-   #\Return #\Newline
+   (<- long-lines (many? (long-line-extension?)))
+   (seq-list? #\Return #\Newline)
    (when name
-     (list group name params value))))
+     (list group name params (apply #'concatenate 'string value long-lines)))))
 
 (defun text-node? (vcard-field-name element-tag)
   (named-seq?
@@ -193,7 +202,7 @@
            (stp:append-child adr-element
                              (apply #'make-text-nodes "country"
                                     (split-string country))))
-         
+
          adr-element)))))
 
 (defun anniversary? () (text-node? "ANNIVERSARY" "property-anniversary"))
@@ -277,8 +286,8 @@
 (defun vcard? ()
   (named-seq?
    "BEGIN" ":" "VCARD" #\Return #\Newline
-   (<- content (many1? 
-                (choices1 
+   (<- content (many1?
+                (choices1
                  (adr?)
                  (anniversary?)
                  (bday?)
@@ -288,12 +297,12 @@
                  (clientpidmap?)
                  (email?)
                  (fburl?)
-                                  
+
                  (fn?)
                  (geo?)
                  (impp?)
                  (key?)
-                 
+
                  (kind?)
                  (lang?)
                  (logo?)
@@ -317,7 +326,7 @@
                  (source?)
                  (tel?)
                  (title?)
-                 
+
                  (tz?)
                  (uid?)
                  (url?)
@@ -333,8 +342,11 @@
            :initial-value (stp:make-element "vcard" *vcard-namespace*))))
 
 (defun parse-vcard (str)
-  (stp:make-document 
-   (stp:append-child
-    (stp:make-element "vcards" *vcard-namespace*)
-    (parse-string* (vcard?) str))))
+  (stp:make-document
+   (reduce (lambda (element x)
+             (stp:append-child
+              element
+              x))
+           (parse-string* (many1? (vcard?)) str)
+           :initial-value (stp:make-element "vcards" *vcard-namespace*))))
 
