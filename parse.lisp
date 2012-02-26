@@ -133,6 +133,13 @@
 (defun name? ()
   (between? (alphanum-or-dash?) 1 nil 'string))
 
+(defun x-name? ()
+  (named-seq?
+   (<- x (choice #\X #\x))
+   #\-
+   (<- name (between? (alphanum-or-dash?) 1 nil 'string))
+   (concatenate 'string (string x) "-" name)))
+
 (defun long-line-extension? ()
   (named-seq?
    #\Return
@@ -140,6 +147,25 @@
    (wsp?)
    (<- value (value?))
    value))
+
+
+(defun x-name-line? ()
+  ;; [group "."] name *(";" param) ":" value CRLF
+  (named-seq?
+   (<- group (opt? (hook?
+                    #'first
+                    (seq-list? (group?) "."))))
+   (<- name (x-name?))
+   (<- params (many? (named-seq?
+                      ";"
+                      (<- param (param?))
+                      param)))
+   ":"
+   (<- value (value?))
+   (<- long-lines (many? (long-line-extension?)))
+   (seq-list? #\Return #\Newline)
+   (when name
+     (list group name params (apply #'concatenate 'string value long-lines)))))
 
 (defun content-line? (&optional name)
   ;; [group "."] name *(";" param) ":" value CRLF
@@ -158,6 +184,11 @@
    (seq-list? #\Return #\Newline)
    (when name
      (list group name params (apply #'concatenate 'string value long-lines)))))
+
+(defun version? ()
+  (named-seq?
+   (content-line? "VERSION")
+   nil))
 
 (defun text-node? (vcard-field-name element-tag)
   (named-seq?
@@ -211,7 +242,7 @@
 (defun caluri? () (text-node? "CALURI" "property-caluri"))
 
 ;; fix me -- categories needs to accept multiple values
-(defun categories? () (text-node? "CALURI" "property-categories"))
+(defun categories? () (text-node? "CATEGORIES" "property-categories"))
 
 (defun clientpidmap? () (text-node? "CLIENTPIDMAP" "property-clientpidmap"))
 (defun email? () (text-node? "EMAIL" "property-email"))
@@ -293,45 +324,29 @@
                  (bday?)
                  (caladruri?)
                  (caluri?)
+                 (categories?)
 
-                 (clientpidmap?)
-                 (email?)
-                 (fburl?)
+                 (clientpidmap?) (email?) (fburl?)
 
-                 (fn?)
-                 (geo?)
-                 (impp?)
-                 (key?)
+                 (fn?) (geo?) (impp?) (key?)
+                 
+                 (kind?) (lang?) (logo?)
 
-                 (kind?)
-                 (lang?)
-                 (logo?)
+                 (member?) (n?) (nickname?)
 
-                 (member?)
-                 (n?)
-                 (nickname?)
+                 (note?) (org?) (photo?)
 
-                 (note?)
-                 (org?)
-                 (photo?)
+                 (prodid?) (related?) (rev?)
 
-                 (prodid?)
-                 (related?)
-                 (rev?)
+                 (role?) (gender?) (sound?)
 
-                 (role?)
-                 (gender?)
-                 (sound?)
+                 (source?) (tel?) (title?)
 
-                 (source?)
-                 (tel?)
-                 (title?)
+                 (tz?) (uid?) (url?)
 
-                 (tz?)
-                 (uid?)
-                 (url?)
-
-                 (content-line?))))
+                 (x-name-line?)
+                 
+                 (version?))))
 
    "END" ":" "VCARD" #\Return #\Newline
    (reduce (lambda (element x)
