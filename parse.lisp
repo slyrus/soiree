@@ -109,7 +109,8 @@
     (loop for c across str
           do (if escaped
                  (progn
-                   (push c cur)
+                   (cond ((char-equal c #\n) (push #\newline cur))
+                         (t (push c cur)))
                    (setf escaped nil))
                  (progn
                    (cond ((eql c delimiter)
