@@ -12,11 +12,31 @@
 (defun make-text-node (element-tag string)
   (stp:append-child
    (stp:make-element element-tag  *vcard-namespace*)
+   (stp:make-text string)))
+
+(defun make-text-nodes (element-tag &rest strings)
+  (reduce (lambda (element x)
+            (stp:append-child
+             element
+             (stp:make-text x)))
+          strings
+          :initial-value (stp:make-element element-tag *vcard-namespace*)))
+
+(defun make-value-text-node (element-tag string)
+  (stp:append-child
+   (stp:make-element element-tag  *vcard-namespace*)
    (stp:append-child
     (stp:make-element "text" *vcard-namespace*)
     (stp:make-text string))))
 
-(defun make-text-nodes (element-tag &rest strings)
+(defun make-uri-text-node (element-tag string)
+  (stp:append-child
+   (stp:make-element element-tag  *vcard-namespace*)
+   (stp:append-child
+    (stp:make-element "uri" *vcard-namespace*)
+    (stp:make-text string))))
+
+(defun make-value-text-nodes (element-tag &rest strings)
   (reduce (lambda (element x)
             (stp:append-child
              element
@@ -190,12 +210,19 @@
    (content-line? "VERSION")
    nil))
 
-(defun text-node? (vcard-field-name element-tag)
+(defun value-text-node? (vcard-field-name element-tag)
   (named-seq?
    (<- result (content-line? vcard-field-name))
    (destructuring-bind (group name params value)
        result
-     (make-text-node element-tag value))))
+     (make-value-text-node element-tag value))))
+
+(defun uri-text-node? (vcard-field-name element-tag)
+  (named-seq?
+   (<- result (content-line? vcard-field-name))
+   (destructuring-bind (group name params value)
+       result
+     (make-uri-text-node element-tag value))))
 
 (defun adr? ()
   (named-seq?
@@ -204,81 +231,74 @@
        result
      (destructuring-bind (pobox ext street locality region code country)
          (split-string value :delimiter #\;)
-       (let ((adr-element (stp:make-element "property-adr" *vcard-namespace*)))
-         (when-string pobox
-           (stp:append-child adr-element
-                             (apply #'make-text-nodes "pobox"
-                                    (split-string pobox))))
-         (when-string ext
-           (stp:append-child adr-element
-                             (apply #'make-text-nodes "ext"
-                                    (split-string ext))))
-         (when-string street
-           (stp:append-child adr-element
-                             (apply #'make-text-nodes "street"
-                                    (split-string street))))
-         (when-string locality
-           (stp:append-child adr-element
-                             (apply #'make-text-nodes "locality"
-                                    (split-string locality))))
-         (when-string region
-           (stp:append-child adr-element
-                             (apply #'make-text-nodes "region"
-                                    (split-string region))))
-         (when-string code
-           (stp:append-child adr-element
-                             (apply #'make-text-nodes "code"
-                                    (split-string code))))
-         (when-string country
-           (stp:append-child adr-element
-                             (apply #'make-text-nodes "country"
-                                    (split-string country))))
+       (let ((adr-element (stp:make-element "adr" *vcard-namespace*)))
+         (stp:append-child adr-element
+                           (apply #'make-text-nodes "pobox"
+                                  (split-string pobox)))
+         (stp:append-child adr-element
+                           (apply #'make-text-nodes "ext"
+                                  (split-string ext)))
+         (stp:append-child adr-element
+                           (apply #'make-text-nodes "street"
+                                  (split-string street)))
+         (stp:append-child adr-element
+                           (apply #'make-text-nodes "locality"
+                                  (split-string locality)))
+         (stp:append-child adr-element
+                           (apply #'make-text-nodes "region"
+                                  (split-string region)))
+         (stp:append-child adr-element
+                           (apply #'make-text-nodes "code"
+                                  (split-string code)))
+         (stp:append-child adr-element
+                           (apply #'make-text-nodes "country"
+                                  (split-string country)))
 
          adr-element)))))
 
-(defun anniversary? () (text-node? "ANNIVERSARY" "property-anniversary"))
-(defun bday? () (text-node? "BDAY" "property-bday"))
-(defun caladruri? () (text-node? "CALADRURI" "property-caladruri"))
-(defun caluri? () (text-node? "CALURI" "property-caluri"))
+(defun anniversary? () (value-text-node? "ANNIVERSARY" "anniversary"))
+(defun bday? () (value-text-node? "BDAY" "bday"))
+(defun caladruri? () (value-text-node? "CALADRURI" "caladruri"))
+(defun caluri? () (value-text-node? "CALURI" "caluri"))
 
 ;; fix me -- categories needs to accept multiple values
-(defun categories? () (text-node? "CATEGORIES" "property-categories"))
+(defun categories? () (value-text-node? "CATEGORIES" "categories"))
 
-(defun clientpidmap? () (text-node? "CLIENTPIDMAP" "property-clientpidmap"))
-(defun email? () (text-node? "EMAIL" "property-email"))
-(defun fburl? () (text-node? "FBURL" "property-fburl"))
+(defun clientpidmap? () (value-text-node? "CLIENTPIDMAP" "clientpidmap"))
+(defun email? () (value-text-node? "EMAIL" "email"))
+(defun fburl? () (uri-text-node? "FBURL" "fburl"))
 
-(defun fn? () (text-node? "FN" "property-fn"))
-(defun geo? () (text-node? "GEO" "property-geo"))
-(defun impp? () (text-node? "IMPP" "property-impp"))
-(defun key? () (text-node? "KEY" "property-key"))
+(defun fn? () (value-text-node? "FN" "fn"))
+(defun geo? () (value-text-node? "GEO" "geo"))
+(defun impp? () (value-text-node? "IMPP" "impp"))
+(defun key? () (value-text-node? "KEY" "key"))
 
-(defun kind? () (text-node? "KIND" "property-kind"))
-(defun lang? () (text-node? "LANG" "property-lang"))
-(defun logo? () (text-node? "LOGO" "property-logo"))
+(defun kind? () (value-text-node? "KIND" "kind"))
+(defun lang? () (value-text-node? "LANG" "lang"))
+(defun logo? () (value-text-node? "LOGO" "logo"))
 
-(defun member? () (text-node? "MEMBER" "property-member"))
-(defun nickname? () (text-node? "NICKNAME" "property-nickname"))
+(defun member? () (value-text-node? "MEMBER" "member"))
+(defun nickname? () (value-text-node? "NICKNAME" "nickname"))
 
-(defun note? () (text-node? "NOTE" "property-note"))
-(defun org? () (text-node? "ORG" "property-org"))
-(defun photo? () (text-node? "PHOTO" "property-photo"))
+(defun note? () (value-text-node? "NOTE" "note"))
+(defun org? () (value-text-node? "ORG" "org"))
+(defun photo? () (uri-text-node? "PHOTO" "photo"))
 
-(defun prodid? () (text-node? "PRODID" "property-prodid"))
-(defun related? () (text-node? "RELATED" "property-related"))
-(defun rev? () (text-node? "REV" "property-rev"))
+(defun prodid? () (value-text-node? "PRODID" "prodid"))
+(defun related? () (value-text-node? "RELATED" "related"))
+(defun rev? () (value-text-node? "REV" "rev"))
 
-(defun role? () (text-node? "ROLE" "property-role"))
-(defun gender? () (text-node? "GENDER" "property-gender"))
-(defun sound? () (text-node? "SOUND" "property-sound"))
+(defun role? () (value-text-node? "ROLE" "role"))
+(defun gender? () (value-text-node? "GENDER" "gender"))
+(defun sound? () (value-text-node? "SOUND" "sound"))
 
-(defun source? () (text-node? "SOURCE" "property-source"))
-(defun tel? () (text-node? "TEL" "property-tel"))
-(defun title? () (text-node? "TITLE" "property-title"))
+(defun source? () (value-text-node? "SOURCE" "source"))
+(defun tel? () (value-text-node? "TEL" "tel"))
+(defun title? () (value-text-node? "TITLE" "title"))
 
-(defun tz? () (text-node? "TZ" "property-tz"))
-(defun uid? () (text-node? "UID" "property-uid"))
-(defun url? () (text-node? "URL" "property-url"))
+(defun tz? () (value-text-node? "TZ" "tz"))
+(defun uid? () (uri-text-node? "UID" "uid"))
+(defun url? () (uri-text-node? "URL" "url"))
 
 (defun n? ()
   (named-seq?
@@ -291,27 +311,22 @@
                           honorific-prefixes
                           honorific-suffixes)
          (split-string value :delimiter #\;)
-       (let ((n-element (stp:make-element "property-n" *vcard-namespace*)))
-         (when-string family-names
-           (stp:append-child n-element
-                             (apply #'make-text-nodes "surname"
-                                    (split-string family-names))))
-         (when-string given-names
-           (stp:append-child n-element
-                             (apply #'make-text-nodes "given"
-                                    (split-string given-names))))
-         (when-string additional-names
-           (stp:append-child n-element
-                             (apply #'make-text-nodes "additional"
-                                    (split-string additional-names))))
-         (when-string honorific-prefixes
-           (stp:append-child n-element
-                             (apply #'make-text-nodes "prefixes"
-                                    (split-string honorific-prefixes))))
-         (when-string honorific-suffixes
-           (stp:append-child n-element
-                             (apply #'make-text-nodes "suffixes"
-                                    (split-string honorific-suffixes))))
+       (let ((n-element (stp:make-element "n" *vcard-namespace*)))
+         (stp:append-child n-element
+                           (apply #'make-text-nodes "surname"
+                                  (split-string family-names)))
+         (stp:append-child n-element
+                           (apply #'make-text-nodes "given"
+                                  (split-string given-names)))
+         (stp:append-child n-element
+                           (apply #'make-text-nodes "additional"
+                                  (split-string additional-names)))
+         (stp:append-child n-element
+                           (apply #'make-text-nodes "prefix"
+                                  (split-string honorific-prefixes)))
+         (stp:append-child n-element
+                           (apply #'make-text-nodes "suffix"
+                                  (split-string honorific-suffixes)))
          n-element)))))
 
 (defun vcard? ()
