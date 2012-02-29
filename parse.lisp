@@ -88,7 +88,9 @@
    (sat #'alphanumericp)))
 
 (defun group? () (word?))
-(defun param-name? () (word?))
+
+(def-cached-parser param-name?
+  (between? (choice1 (alphanum?) #\-) 1 nil 'string))
 
 (defun param-value? ()
   (choice1
@@ -216,7 +218,7 @@
    (<- result (content-line? vcard-field-name))
    (destructuring-bind (group name params value)
        result
-     (make-value-text-node element-tag value))))
+     (apply #'make-value-text-nodes element-tag (split-string value)))))
 
 (defun uri-text-node? (vcard-field-name element-tag)
   (named-seq?
