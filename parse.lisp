@@ -272,13 +272,15 @@
 (defun fburl? () (uri-text-node? "FBURL" "fburl"))
 
 (defun fn? () (value-text-node? "FN" "fn"))
-(defun geo? () (value-text-node? "GEO" "geo"))
-(defun impp? () (value-text-node? "IMPP" "impp"))
-(defun key? () (value-text-node? "KEY" "key"))
+(defun geo? () (uri-text-node? "GEO" "geo"))
+(defun impp? () (uri-text-node? "IMPP" "impp"))
+(defun key? () (uri-text-node? "KEY" "key"))
 
 (defun kind? () (value-text-node? "KIND" "kind"))
+
+;;; FIXME LANG is broken
 (defun lang? () (value-text-node? "LANG" "lang"))
-(defun logo? () (value-text-node? "LOGO" "logo"))
+(defun logo? () (uri-text-node? "LOGO" "logo"))
 
 (defun member? () (value-text-node? "MEMBER" "member"))
 (defun nickname? () (value-text-node? "NICKNAME" "nickname"))
