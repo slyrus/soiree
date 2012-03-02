@@ -9,42 +9,64 @@
        (when (and ,str (not (equal ,str "")))
          ,@forms))))
 
+(defun wrap-stp-element (stp-element)
+  (fset:map (:node stp-element) (:children (fset:seq))))
+
+(defun unwrap-stp-element (fset-element)
+  (fset:reduce (lambda (node x)
+                 (stp:append-child
+                  node
+                  (unwrap-stp-element x)))
+          (fset:@ fset-element :children)
+          :initial-value (fset:@ fset-element :node)))
+
+(defun make-fset-element (name &optional (uri "" uri-supplied-p))
+  (wrap-stp-element (apply #'stp:make-element name
+                           (when uri-supplied-p (list uri)))))
+
+(defun add-fset-element-child (element child)
+  (fset:appendf (fset:@ element :children) (list child))
+  element)
+
+(defun make-fset-text (string)
+  (wrap-stp-element (stp:make-text string)))
+
 (defun make-text-node (element-tag string)
-  (stp:append-child
-   (stp:make-element element-tag  *vcard-namespace*)
-   (stp:make-text string)))
+  (add-fset-element-child
+   (make-fset-element element-tag *vcard-namespace*)
+   (make-fset-text string)))
 
 (defun make-text-nodes (element-tag &rest strings)
   (reduce (lambda (element x)
-            (stp:append-child
+            (add-fset-element-child
              element
-             (stp:make-text x)))
+             (make-fset-text x)))
           strings
-          :initial-value (stp:make-element element-tag *vcard-namespace*)))
+          :initial-value (make-fset-element element-tag *vcard-namespace*)))
 
 (defun make-value-text-node (element-tag string)
-  (stp:append-child
-   (stp:make-element element-tag  *vcard-namespace*)
-   (stp:append-child
-    (stp:make-element "text" *vcard-namespace*)
-    (stp:make-text string))))
+  (add-fset-element-child
+   (make-fset-element element-tag  *vcard-namespace*)
+   (add-fset-element-child
+    (make-fset-element "text" *vcard-namespace*)
+    (make-fset-text string))))
 
 (defun make-uri-text-node (element-tag string)
-  (stp:append-child
-   (stp:make-element element-tag  *vcard-namespace*)
-   (stp:append-child
-    (stp:make-element "uri" *vcard-namespace*)
-    (stp:make-text string))))
+  (add-fset-element-child
+   (make-fset-element element-tag  *vcard-namespace*)
+   (add-fset-element-child
+    (make-fset-element "uri" *vcard-namespace*)
+    (make-fset-text string))))
 
 (defun make-value-text-nodes (element-tag &rest strings)
   (reduce (lambda (element x)
-            (stp:append-child
+            (add-fset-element-child
              element
-             (stp:append-child
-              (stp:make-element "text" *vcard-namespace*)
-              (stp:make-text x))))
+             (add-fset-element-child
+              (make-fset-element "text" *vcard-namespace*)
+              (make-fset-text x))))
           strings
-          :initial-value (stp:make-element element-tag *vcard-namespace*)))
+          :initial-value (make-fset-element element-tag *vcard-namespace*)))
 
 (defun qsafe-char-p (char)
   (let ((code (char-code char)))
@@ -235,30 +257,23 @@
        result
      (destructuring-bind (pobox ext street locality region code country)
          (split-string value :delimiter #\;)
-       (let ((adr-element (stp:make-element "adr" *vcard-namespace*)))
-         (stp:append-child adr-element
-                           (apply #'make-text-nodes "pobox"
-                                  (split-string pobox)))
-         (stp:append-child adr-element
-                           (apply #'make-text-nodes "ext"
-                                  (split-string ext)))
-         (stp:append-child adr-element
-                           (apply #'make-text-nodes "street"
-                                  (split-string street)))
-         (stp:append-child adr-element
-                           (apply #'make-text-nodes "locality"
-                                  (split-string locality)))
-         (stp:append-child adr-element
-                           (apply #'make-text-nodes "region"
-                                  (split-string region)))
-         (stp:append-child adr-element
-                           (apply #'make-text-nodes "code"
-                                  (split-string code)))
-         (stp:append-child adr-element
-                           (apply #'make-text-nodes "country"
-                                  (split-string country)))
-
-         adr-element)))))
+       (reduce (lambda (parent child)
+                 (add-fset-element-child parent child))
+               (list (apply #'make-text-nodes "pobox"
+                            (split-string pobox))
+                     (apply #'make-text-nodes "ext"
+                            (split-string ext))
+                     (apply #'make-text-nodes "street"
+                            (split-string street))
+                     (apply #'make-text-nodes "locality"
+                            (split-string locality))
+                     (apply #'make-text-nodes "region"
+                            (split-string region))
+                     (apply #'make-text-nodes "code"
+                            (split-string code))
+                     (apply #'make-text-nodes "country"
+                            (split-string country)))
+               :initial-value (make-fset-element "adr" *vcard-namespace*))))))
 
 (defun anniversary? () (value-text-node? "ANNIVERSARY" "anniversary"))
 (defun bday? () (value-text-node? "BDAY" "bday"))
@@ -270,6 +285,7 @@
 
 (defun clientpidmap? () (value-text-node? "CLIENTPIDMAP" "clientpidmap"))
 (defun email? () (value-text-node? "EMAIL" "email"))
+
 (defun fburl? () (uri-text-node? "FBURL" "fburl"))
 
 (defun fn? () (value-text-node? "FN" "fn"))
@@ -317,23 +333,19 @@
                           honorific-prefixes
                           honorific-suffixes)
          (split-string value :delimiter #\;)
-       (let ((n-element (stp:make-element "n" *vcard-namespace*)))
-         (stp:append-child n-element
-                           (apply #'make-text-nodes "surname"
-                                  (split-string family-names)))
-         (stp:append-child n-element
-                           (apply #'make-text-nodes "given"
-                                  (split-string given-names)))
-         (stp:append-child n-element
-                           (apply #'make-text-nodes "additional"
-                                  (split-string additional-names)))
-         (stp:append-child n-element
-                           (apply #'make-text-nodes "prefix"
-                                  (split-string honorific-prefixes)))
-         (stp:append-child n-element
-                           (apply #'make-text-nodes "suffix"
-                                  (split-string honorific-suffixes)))
-         n-element)))))
+       (reduce (lambda (parent child)
+                 (add-fset-element-child parent child))
+               (list (apply #'make-text-nodes "surname"
+                            (split-string family-names))
+                     (apply #'make-text-nodes "given"
+                            (split-string given-names))
+                     (apply #'make-text-nodes "additional"
+                            (split-string additional-names))
+                     (apply #'make-text-nodes "prefix"
+                            (split-string honorific-prefixes))
+                     (apply #'make-text-nodes "suffix"
+                            (split-string honorific-suffixes)))
+               :initial-value (make-fset-element "n" *vcard-namespace*))))))
 
 (defun vcard? ()
   (named-seq?
@@ -370,19 +382,19 @@
                  (version?))))
 
    "END" ":" "VCARD" #\Return #\Newline
-   (reduce (lambda (element x)
-             (if (typep x 'stp:element)
-                 (stp:append-child element x)
+   (fset:reduce (lambda (element x)
+             (if (and x (not (consp x)))
+                 (add-fset-element-child element x)
                  element))
            content
-           :initial-value (stp:make-element "vcard" *vcard-namespace*))))
+           :initial-value (make-fset-element "vcard" *vcard-namespace*))))
 
 (defun parse-vcard (str)
   (stp:make-document
-   (reduce (lambda (element x)
-             (stp:append-child
-              element
-              x))
-           (parse-string* (many1? (vcard?)) str)
-           :initial-value (stp:make-element "vcards" *vcard-namespace*))))
+   (fset:reduce (lambda (element x)
+                  (stp:append-child
+                   element
+                   (unwrap-stp-element x)))
+                (parse-string* (many1? (vcard?)) str)
+                :initial-value (stp:make-element "vcards" *vcard-namespace*))))
 
