@@ -25,9 +25,8 @@
                            (when uri-supplied-p (list uri)))))
 
 (defun add-fset-element-child (element child)
-  (fset:map (fset:$ element)
-            (:children (fset:seq (fset:$ (fset:@ element :children))
-                                 child))))
+  (fset:appendf (fset:@ element :children) (list child))
+  element)
 
 (defun make-fset-text (string)
   (wrap-stp-element (stp:make-text string)))
