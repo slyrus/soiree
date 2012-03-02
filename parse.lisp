@@ -110,7 +110,8 @@
    #\-
    (sat #'alphanumericp)))
 
-(defun group? () (word?))
+(def-cached-parser group?
+  (between? (alphanum?) 1 nil 'string))
 
 (def-cached-parser param-name?
   (between? (choice1 (alphanum?) #\-) 1 nil 'string))
