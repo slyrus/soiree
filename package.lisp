@@ -9,6 +9,6 @@
 (cl:in-package :cl-vcard)
 
 (defvar *vcard-rng-pathname*
-  (merge-pathnames #p"vcard-4_0.rng" cl-vcard-config:*base-directory*))
+  (merge-pathnames #p"vcard-4_0.rnc" cl-vcard-config:*base-directory*))
 
 (defvar *vcard-rng-schema* (cxml-rng:parse-compact *vcard-rng-pathname*))

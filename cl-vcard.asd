@@ -13,3 +13,8 @@
    (:file "utilities")
    (:file "vcard")
    (:file "parse")))
+
+(cl:defpackage #:cl-vcard-config (:export #:*base-directory*))
+
+(cl:defparameter cl-vcard-config:*base-directory* 
+  (make-pathname :name nil :type nil :defaults *load-truename*))
