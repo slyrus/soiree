@@ -16,9 +16,9 @@ application, but that really only worked for a single machine, at
 least at first. At some point I discovered the awesomeness of
 [DAViCal](http://www.davical.org/), which is a CALDAV/CARDDAV server
 for serving up calendar and contact/address book information. Great!
-Ok, so, I jumped through the requisite hoops to get things working
+OK, so, I jumped through the requisite hoops to get things working
 between DAViCal and Address Book (and iCal) and all was good -- except
-for the fact that I still didn't have a nice convinient API for
+for the fact that I still didn't have a nice convenient API for
 searching/querying/retrieving/updating the data in DAViCal.
 
 So, that motivated me to write some code for working with my data from
@@ -65,13 +65,13 @@ rely on a specification to define the data model, it sure would be
 nice if the specification itself could be read, interrogated, and used
 by our programs.
 
-* xCard: vCard XML Representation
+* xCard: VCARD XML Representation
 
 Enter the [xCard
 specification](http://tools.ietf.org/html/rfc6351). The
 xCard specification does two things, it provides a model for reading
 and writing vCard data (that is the data that can be represented in
-VCARDs, not the actual VCARD synyax) and, more importantly, it
+VCARDs, not the actual VCARD syntax) and, more importantly, it
 provides a machine-readable representation of the specification in the
 form of a [RELAX NG
 schema](http://tools.ietf.org/html/rfc6351#appendix-A).
@@ -101,7 +101,7 @@ interesting approach, but an awful lot of work. Since we've got a
 schema that defines the vCard semantics, as represented by an XML
 document, perhaps we can just use an in-memory representation of the
 XML data itself as our "data model" for
-readin/writing/querying/etc... the address book data. This is the
+reading/writing/querying/etc... the address book data. This is the
 approach I've taken with cl-vcard, and we'll come back to it
 momentarily.
 
@@ -111,7 +111,7 @@ For the moment, before we get into what are we transforming the data
 _to_, we need to consider what we're transforming the data _from_ and
 how to do so. A simple, hand-coded recursive descent parser would
 probably be the most straightforward way to go, but I'm exceedingly
-lazy and wante someone else to do the bulk of the heavy lifting of
+lazy and wanted someone else to do the bulk of the heavy lifting of
 parsing for me. Enter Jakub Higersberger's awesome
 [parser-combinator]() library, inspired by Haskell's
 [parsec](http://www.haskell.org/haskellwiki/Parsec) monadic
@@ -222,11 +222,11 @@ comparison between the DOM and STP interfaces can be found
 In the guts of the parser we use functions like stp:make-element and
 stp:append-child to construct the document tree. These, and the rest
 of the STP API, sit on top of Gilbert Baumann's [Closure XML (or CXML)
-libaray](http://common-lisp.net/project/cxml/).
+library](http://common-lisp.net/project/cxml/).
 
 * What's the damn phone number?
 
-Ok, so far this has all been a lot of work and we haven't even gotten
+OK, so far this has all been a lot of work and we haven't even gotten
 to access any of our data. We're almost there. We just need one more
 XML library (of course...). We _could_ work with the STP document directly:
 
@@ -258,7 +258,7 @@ by hand as above, we can do:
     (xpath:with-namespaces ((nil cl-vcard:*vcard-namespace*))
       (xpath:evaluate "string(/vcards/vcard/tel/*/text())" *baba*))
 
-Ignoring the with-namespaces macro invokation for a moment, we see a sinlge line of code that gets us the information we want. Win! This is a very simple example, but the XPath language allows us to write much more interesting queries. There are two housekeeping matters we need to take care of first.
+Ignoring the with-namespaces macro invocation for a moment, we see a single line of code that gets us the information we want. Win! This is a very simple example, but the XPath language allows us to write much more interesting queries. There are two housekeeping matters we need to take care of first.
 
 First, let's make a macro to handle the namespace stuff. Plexippus is (rightfully) rather picky about making sure that XML element and attribute names are properly qualified. We can set the default namespace as above, but we'll do this in a macro in case we want to change this later:
 
