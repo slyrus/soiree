@@ -37,15 +37,15 @@ terribly hard to parse.
 But, that leads to the next question of, having parsed the data, what
 I'm I going to _do_ with the data? Or, put another way, how am I going
 to represent/model the data contained in the VCARD file? Just slurping
-the VCARD bits into a buffer of characters doesn't help my find, for
+the VCARD bits into a buffer of characters doesn't help me find, for
 instance, the email address of a particular person. One approach would
 be to define a data model with CLOS classes and generic functions that
 operate on those classes to allow for reading/writing/querying the
 data. Another approach would be to use a more generic data structure
 like lists or, probably better yet, nested hash-tables that would
 allow traversal of a graph of data objects via key/value
-relationships. The VCARD format itself could be that of as a (somewhat
-unwieldy) data model.
+relationships. The VCARD format itself could be thought of as a
+(somewhat unwieldy) data model.
 
 * The VCARD Specification
 
@@ -296,7 +296,7 @@ xCard data -- even if there's never an xCard file per se:
     (stp:serialize *baba* (cxml-rng:make-validator *vcard-rng-schema*))
 
 Once we've got that the document in place we can validate it against
-the Relax NG schema. The VCARD -> xCard may not be complete (which it
+the Relax NG schema. The VCARD -> xCard transformation may not be complete (which it
 isn't yet), but at least we know that the (so far tested) output is
 valid XML, that complies with the Relax NG schema.
 
