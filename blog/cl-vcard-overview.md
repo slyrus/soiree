@@ -337,6 +337,8 @@ In the mean time, cl-vcard can be found on [github](https://github.com/slyrus/cl
 
 5. [fset](http://common-lisp.net/project/fset/)
 
+6. [DRAKMA](http://weitz.de/drakma/)
+
 ** Standards
 
 1. [VCARD](http://tools.ietf.org/html/rfc6350)
@@ -351,4 +353,3 @@ In the mean time, cl-vcard can be found on [github](https://github.com/slyrus/cl
 
 6. [XPATH](http://www.w3.org/TR/xpath/)
 
-7. [DRAKMA](http://weitz.de/drakma/)
