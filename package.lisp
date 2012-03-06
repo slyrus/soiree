@@ -1,5 +1,5 @@
 
-(cl:defpackage :cl-vcard
+(cl:defpackage :soiree
   (:use :common-lisp :parser-combinators)
   (:nicknames :vcard)
   (:export #:parse-vcard

@@ -1,10 +1,10 @@
 
-(asdf:load-system 'cl-vcard)
+(asdf:load-system 'soiree)
 
-(cl:defpackage #:cl-vcard-example
-  (:use #:cl #:cl-vcard))
+(cl:defpackage #:soiree-example
+  (:use #:cl #:soiree))
 
-(cl:in-package #:cl-vcard-example)
+(cl:in-package #:soiree-example)
 
 (defparameter *baba-oriley-vcard*
   "BEGIN:VCARD
@@ -24,7 +24,7 @@ END:VCARD
 (defparameter *baba* (parse-vcard *baba-oriley-vcard*))
 
 (defmacro with-vcard-namespace (&body body)
-  `(xpath:with-namespaces ((nil cl-vcard::*vcard-namespace*))
+  `(xpath:with-namespaces ((nil soiree::*vcard-namespace*))
      ,@body))
 
 (xpath:string-value
@@ -53,10 +53,10 @@ END:VCARD
   :key #'stp:local-name :test 'equal))
 
 
-(xpath:with-namespaces ((nil cl-vcard::*vcard-namespace*))
+(xpath:with-namespaces ((nil soiree::*vcard-namespace*))
   (xpath:evaluate "string(/vcards/vcard/tel/*/text())" *baba*))
 
-(xpath:with-namespaces ((nil cl-vcard::*vcard-namespace*))
+(xpath:with-namespaces ((nil soiree::*vcard-namespace*))
   (format nil "~A is a ~A who works at ~A and can be reached via e-mail at ~A"
           (xpath:evaluate "string(/vcards/vcard/fn/*/text())" *baba*)
           (xpath:evaluate "string(/vcards/vcard/title/*/text())" *baba*)

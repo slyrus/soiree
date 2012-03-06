@@ -1,6 +1,6 @@
 
-(asdf:defsystem :cl-vcard
-  :name "cl-vcard"
+(asdf:defsystem :soiree
+  :name "soiree"
   :author "Cyrus Harmon <ch-lisp@bobobeach.com>"
   :licence "BSD"
   :serial t
@@ -14,7 +14,7 @@
    (:file "vcard")
    (:file "parse")))
 
-(cl:defpackage #:cl-vcard-config (:export #:*base-directory*))
+(cl:defpackage #:soiree-config (:export #:*base-directory*))
 
-(cl:defparameter cl-vcard-config:*base-directory* 
+(cl:defparameter soiree-config:*base-directory* 
   (make-pathname :name nil :type nil :defaults *load-truename*))
