@@ -599,7 +599,7 @@ type-tzprop = element properties {
 # 3.6.6 Alarm Component
 
 component-valarm = element valarm {
-    audioprop | dispprop | emailprop
+    type-audioprop | type-dispprop | type-emailprop
 }
 
 type-audioprop = element properties {
@@ -612,7 +612,7 @@ type-audioprop = element properties {
     property-attach?
 }
 
-type-dispprop = element properties {
+type-emailprop = element properties {
     property-action &
     property-description &
     property-trigger &
@@ -625,7 +625,7 @@ type-dispprop = element properties {
     property-attach*
 }
 
-type-emailprop = element properties {
+type-dispprop = element properties {
     property-action &
     property-description &
     property-trigger &
