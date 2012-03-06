@@ -299,15 +299,15 @@ type-count = element count {
 }
 
 type-bysecond = element bysecond {
-    xsd:positiveInteger
+    xsd:nonNegativeInteger
 }
-
+       
 type-byminute = element byminute {
-    xsd:positiveInteger
+    xsd:nonNegativeInteger
 }
 
 type-byhour = element byhour {
-    xsd:positiveInteger
+    xsd:nonNegativeInteger
 }
 
 type-weekday = (
