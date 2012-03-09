@@ -1,5 +1,5 @@
-cl-vcard, a library for parsing VCARD records in Common
-Lisp
+soiree, a library for working with address book and calendar data in
+Common Lisp
 
 Copyright (c) 2011 Cyrus Harmon
 All rights reserved.
