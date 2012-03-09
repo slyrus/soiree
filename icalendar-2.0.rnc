@@ -290,8 +290,8 @@ type-freq = element freq {
 }
 
 type-until = element until {
-    type-date |
-    type-date-time
+    value-date |
+    value-date-time
 }
 
 type-count = element count {
@@ -321,8 +321,7 @@ type-weekday = (
 )
 
 type-byday = element byday {
-    xsd:integer?,
-    type-weekday
+    xsd:string { pattern='-?[0-9]+(SU|MO|TU|WE|TH|FR|SA)' }
 }
 
 type-bymonthday = element bymonthday {
@@ -567,12 +566,10 @@ component-vtimezone = element vtimezone {
         property-tzid &
 
         property-last-mod? &
-        property-tzuurl?
+        property-tzurl?
     },
     element components {
-        (component-standard | component-daylight) &
-        component-standard* &
-        component-daylight*
+        (component-standard | component-daylight )+
     }
 }
 
@@ -684,7 +681,7 @@ property-attach = element attach {
         encodingparam?
     }?,
 
-    value-uri | value-binary
+    ( value-uri | value-binary )
 }
 
 # 3.8.1.2 Categories
@@ -692,7 +689,7 @@ property-attach = element attach {
 property-categories = element categories {
 
     element parameters {
-        languageparam? &
+        languageparam?
     }?,
 
     value-text+
@@ -855,8 +852,7 @@ property-dtend = element dtend {
         tzidparam?
     }?,
 
-    value-date-time |
-    value-date
+    ( value-date-time | value-date )
 }
 
 # 3.8.2.3 Date/Time Due
@@ -867,8 +863,7 @@ property-due = element due {
         tzidparam?
     }?,
 
-    value-date-time |
-    value-date
+    ( value-date-time | value-date )
 }
 
 # 3.8.2.4 Date/Time Start
@@ -879,8 +874,7 @@ property-dtstart = element dtstart {
         tzidparam?
     }?,
 
-    value-date-time |
-    value-date
+    ( value-date-time | value-date )
 }
 
 # 3.8.2.5 Duration
@@ -1023,8 +1017,7 @@ property-recurid = element recurrence-id {
         rangeparam?
     }?,
 
-    value-date-time |
-    value-date
+    ( value-date-time | value-date )
 }
 
 # 3.8.4.5 Related-To
@@ -1066,8 +1059,7 @@ property-exdate = element exdate {
         tzidparam?
     }?,
 
-    value-date-time+ |
-    value-date+
+    ( value-date-time | value-date)+
 }
 
 # 3.8.5.2 Recurrence Date/Times
@@ -1078,9 +1070,9 @@ property-rdate = element rdate {
         tzidparam?
     }?,
 
-    value-date-time+ |
-    value-date+ |
-    value-period+
+    ( value-date-time |
+    value-date |
+    value-period )+
 }
 
 # 3.8.5.3 Recurrence Rule
