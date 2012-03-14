@@ -19,4 +19,23 @@
   (with-open-file (in pathname :direction :input)
     (contents-of-stream in)))
 
+(defmacro when-string (test &body forms)
+  (let ((str (gensym)))
+    `(let ((,str ,test))
+       (when (and ,str (not (equal ,str "")))
+         ,@forms))))
+
+(defun remove-keyword (key args)
+  (let ((pos (position key args)))
+    (if (and pos (evenp pos))
+        (concatenate (type-of args)
+                     (subseq args 0 pos)
+                     (subseq args (+ pos 2)))
+        args)))
+
+(defun keep (item sequence &rest args &key from-end (test 'eql) test-not start
+                                           end count key)
+  (declare (ignorable from-end test-not start end count key))
+  (apply #'remove-if-not (lambda (x) (funcall test x item))
+         sequence (remove-keyword :test args)))
 

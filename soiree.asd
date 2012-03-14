@@ -11,8 +11,9 @@
    (:static-file "COPYRIGHT")
    (:file "package")
    (:file "utilities")
+   (:file "parse")
    (:file "vcard")
-   (:file "parse")))
+   (:file "icalendar")))
 
 (cl:defpackage #:soiree-config (:export #:*base-directory*))
 

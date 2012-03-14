@@ -1,222 +1,22 @@
 
-(in-package :soiree)
+(cl:defpackage :soiree-vcard
+  (:use :common-lisp :parser-combinators :soiree :soiree-parse)
+  (:shadow #:version?))
+
+(cl:in-package :soiree-vcard)
 
 (defvar *vcard-namespace* "urn:ietf:params:xml:ns:vcard-4.0")
+
+(defmacro with-vcard-namespace (&body body)
+  `(xpath:with-namespaces ((nil *vcard-namespace*))
+     ,@body))
 
 (defvar *vcard-rng-pathname*
   (merge-pathnames #p"vcard-4_0.rnc" soiree-config:*base-directory*))
 
 (defvar *vcard-rng-schema* (cxml-rng:parse-compact *vcard-rng-pathname*))
 
-(defmacro when-string (test &body forms)
-  (let ((str (gensym)))
-    `(let ((,str ,test))
-       (when (and ,str (not (equal ,str "")))
-         ,@forms))))
-
-(defun wrap-stp-element (stp-element)
-  (fset:map (:node stp-element) (:children (fset:seq))))
-
-(defun unwrap-stp-element (fset-element)
-  (fset:reduce (lambda (node x)
-                 (stp:append-child
-                  node
-                  (unwrap-stp-element x)))
-          (fset:@ fset-element :children)
-          :initial-value (fset:@ fset-element :node)))
-
-(defun make-fset-element (name &optional (uri "" uri-supplied-p))
-  (wrap-stp-element (apply #'stp:make-element name
-                           (when uri-supplied-p (list uri)))))
-
-(defun add-fset-element-child (element child)
-  (fset:appendf (fset:@ element :children) (list child))
-  element)
-
-(defun make-fset-text (string)
-  (wrap-stp-element (stp:make-text string)))
-
-(defun make-text-node (element-tag string)
-  (add-fset-element-child
-   (make-fset-element element-tag *vcard-namespace*)
-   (make-fset-text string)))
-
-(defun make-text-nodes (element-tag &rest strings)
-  (reduce (lambda (element x)
-            (add-fset-element-child
-             element
-             (make-fset-text x)))
-          strings
-          :initial-value (make-fset-element element-tag *vcard-namespace*)))
-
-(defun make-value-text-node (element-tag string)
-  (add-fset-element-child
-   (make-fset-element element-tag  *vcard-namespace*)
-   (add-fset-element-child
-    (make-fset-element "text" *vcard-namespace*)
-    (make-fset-text string))))
-
-(defun make-uri-text-node (element-tag string)
-  (add-fset-element-child
-   (make-fset-element element-tag  *vcard-namespace*)
-   (add-fset-element-child
-    (make-fset-element "uri" *vcard-namespace*)
-    (make-fset-text string))))
-
-(defun make-value-text-nodes (element-tag &rest strings)
-  (reduce (lambda (element x)
-            (add-fset-element-child
-             element
-             (add-fset-element-child
-              (make-fset-element "text" *vcard-namespace*)
-              (make-fset-text x))))
-          strings
-          :initial-value (make-fset-element element-tag *vcard-namespace*)))
-
-(defun qsafe-char-p (char)
-  (let ((code (char-code char)))
-    (or (wsp-p char)
-        (= code #x21)
-        (<= #x23 code #x7e)
-        (<= #x80 code #xff))))
-
-(def-cached-parser qsafe-char?
-  (sat #'qsafe-char-p))
-
-(defun safe-char-p (char)
-  (let ((code (char-code char)))
-    (or (wsp-p char)
-        (= code #x21)
-        (<= #x23 code #x39)
-        (<= #x3c code #x7e)
-        (<= #x80 code #xff))))
-
-(def-cached-parser safe-char?
-  (sat #'safe-char-p))
-
-(defun vcharp (char)
-  (<= #x21 (char-code char) #x7e))
-
-(def-cached-parser vchar?
-  (sat #'vcharp))
-
-(defun value-char-p (char)
-  (let ((code (char-code char)))
-    (or (wsp-p char)
-        (<= #x21 code #x7e)
-        (<= #x80 code #xff))))
-
-(def-cached-parser value-char?
-  (sat #'value-char-p))
-
-(def-cached-parser alphanum-or-dash?
-  (choice1
-   #\-
-   (sat #'alphanumericp)))
-
-(def-cached-parser group?
-  (between? (alphanum?) 1 nil 'string))
-
-(def-cached-parser param-name?
-  (between? (choice1 (alphanum?) #\-) 1 nil 'string))
-
-(defun param-value? ()
-  (choice1
-   (between? (safe-char?) 1 nil 'string)
-   (named-seq?
-    #\"
-    (between? (qsafe-char?) 1 nil 'string)
-    #\")))
-
-(defun escaped-string? (char &optional (escape-char #\\))
-  (many?
-   (choice1
-    (named-seq? escape-char (<- c (item)) c)
-    char)))
-
-(defun split-string (str &key (escape-char #\\) (delimiter #\,))
-  (let (escaped acc cur)
-    (loop for c across str
-          do (if escaped
-                 (progn
-                   (cond ((char-equal c #\n) (push #\newline cur))
-                         (t (push c cur)))
-                   (setf escaped nil))
-                 (progn
-                   (cond ((eql c delimiter)
-                          (push (nreverse (coerce cur 'string)) acc)
-                          (setf cur nil))
-                         ((eql c escape-char)
-                          (setf escaped t))
-                         (t (push c cur)))))
-          finally
-             (push (nreverse (coerce cur 'string)) acc)
-             (return (reverse acc)))))
-
-(defun param-values? ()
-  (hook? #'split-string
-         (param-value?)))
-
-(defun param? ()
-  (named-seq?
-   (<- param-name (param-name?))
-   #\=
-   (<- param-values (param-values?))
-   (list param-name param-values)))
-
-(defun non-ascii-p (char)
-  (<= #x80 (char-code char) #xff))
-
-(def-cached-parser non-ascii?
-  (sat #'non-ascii-p))
-
-(defun wsp-p (char)
-  (or (eql char #\space)
-      (eql char #\tab)))
-
-(def-cached-parser wsp?
-  (sat #'wsp-p))
-
-(def-cached-parser value?
-  (between? (choices (vchar?) (wsp?) (non-ascii?))
-            1 nil 'string))
-
-(defun name? ()
-  (between? (alphanum-or-dash?) 1 nil 'string))
-
-(defun x-name? ()
-  (named-seq?
-   (<- x (choice #\X #\x))
-   #\-
-   (<- name (between? (alphanum-or-dash?) 1 nil 'string))
-   (concatenate 'string (string x) "-" name)))
-
-(defun long-line-extension? ()
-  (named-seq?
-   #\Return
-   #\Newline
-   (wsp?)
-   (<- value (value?))
-   value))
-
-(defun version? ()
-  (named-seq?
-   (content-line? "VERSION")
-   nil))
-
-(defun value-text-node? (vcard-field-name element-tag)
-  (named-seq?
-   (<- result (content-line? vcard-field-name))
-   (destructuring-bind (group name params value)
-       result
-     (apply #'make-value-text-nodes element-tag (split-string value)))))
-
-(defun uri-text-node? (vcard-field-name element-tag)
-  (named-seq?
-   (<- result (content-line? vcard-field-name))
-   (destructuring-bind (group name params value)
-       result
-     (make-uri-text-node element-tag value))))
+(defparameter *current-vcard-version* nil)
 
 (defun adr? ()
   (named-seq?
@@ -257,7 +57,6 @@
 (defun fburl? () (uri-text-node? "FBURL" "fburl"))
 
 (defun fn? () (value-text-node? "FN" "fn"))
-(defun geo? () (uri-text-node? "GEO" "geo"))
 (defun impp? () (uri-text-node? "IMPP" "impp"))
 (defun key? () (uri-text-node? "KEY" "key"))
 
@@ -274,7 +73,6 @@
 (defun org? () (value-text-node? "ORG" "org"))
 (defun photo? () (uri-text-node? "PHOTO" "photo"))
 
-(defun prodid? () (value-text-node? "PRODID" "prodid"))
 (defun related? () (value-text-node? "RELATED" "related"))
 (defun rev? () (value-text-node? "REV" "rev"))
 
@@ -283,12 +81,38 @@
 (defun sound? () (value-text-node? "SOUND" "sound"))
 
 (defun source? () (value-text-node? "SOURCE" "source"))
-(defun tel? () (value-text-node? "TEL" "tel"))
+
+(defun tel? ()
+  (named-seq?
+   (<- result (content-line? "TEL"))
+   (destructuring-bind (group name params value)
+       result
+     (let ((tel-node (make-fset-element "tel" *vcard-namespace*)))
+       (cond ((equal *current-vcard-version* "3.0")
+              (let ((types (mapcan #'second
+                                   (keep "type" params :test #'equal :key #'car))))
+                (cond ((member "pref" types :test #'string-equal)
+                       (setf tel-node
+                             (add-fset-element-child
+                              tel-node
+                              (let ((params-element
+                                      (make-fset-element "parameters" *vcard-namespace*)))
+                                (add-fset-element-child
+                                 params-element
+                                 (add-fset-element-child
+                                  (make-fset-element "pref" *vcard-namespace*)
+                                  (add-fset-element-child
+                                   (make-fset-element "integer" *vcard-namespace*)
+                                   (make-fset-text "1"))))))))))))
+       (add-fset-element-child
+        tel-node
+        (add-fset-element-child
+         (make-fset-element "text" *vcard-namespace*)
+         (make-fset-text value)))))))
+
 (defun title? () (value-text-node? "TITLE" "title"))
 
 (defun tz? () (value-text-node? "TZ" "tz"))
-(defun uid? () (uri-text-node? "UID" "uid"))
-(defun url? () (uri-text-node? "URL" "url"))
 
 (defun n? ()
   (named-seq?
@@ -315,6 +139,14 @@
                             (split-string honorific-suffixes)))
                :initial-value (make-fset-element "n" *vcard-namespace*))))))
 
+(defun version? () 
+  (named-seq?
+   (<- result (content-line? "VERSION"))
+   (destructuring-bind (group name params value)
+       result
+     (setf *current-vcard-version* value)
+     nil)))
+
 (defun vcard? ()
   (named-seq?
    "BEGIN" ":" "VCARD" #\Return #\Newline
@@ -351,62 +183,22 @@
 
    "END" ":" "VCARD" #\Return #\Newline
    (fset:reduce (lambda (element x)
-             (if (and x (not (consp x)))
-                 (add-fset-element-child element x)
-                 element))
-           content
-           :initial-value (make-fset-element "vcard" *vcard-namespace*))))
+                  (if (and x (not (consp x)))
+                      (add-fset-element-child element x)
+                      element))
+                content
+                :initial-value (make-fset-element "vcard" *vcard-namespace*))))
 
 (defun parse-vcard (str)
-  (stp:make-document
-   (fset:reduce (lambda (element x)
-                  (stp:append-child
-                   element
-                   (unwrap-stp-element x)))
-                (parse-string* (many1? (vcard?)) str)
-                :initial-value (stp:make-element "vcards" *vcard-namespace*))))
-
-
-(defun vcard? ()
-  (named-seq?
-   "BEGIN" ":" "VCARD" #\Return #\Newline
-   (<- content (many1?
-                (choices1
-                 (adr?)
-                 (anniversary?)
-                 (bday?)
-                 (caladruri?)
-                 (caluri?)
-                 (categories?)
-
-                 (clientpidmap?) (email?) (fburl?)
-
-                 (fn?) (geo?) (impp?) (key?)
-                 
-                 (kind?) (lang?) (logo?)
-
-                 (member?) (n?) (nickname?)
-
-                 (note?) (org?) (photo?)
-
-                 (prodid?) (related?) (rev?)
-
-                 (role?) (gender?) (sound?)
-
-                 (source?) (tel?) (title?)
-
-                 (tz?) (uid?) (url?)
-
-                 (x-name-line?)
-                 
-                 (version?))))
-
-   "END" ":" "VCARD" #\Return #\Newline
-   (fset:reduce (lambda (element x)
-             (if (and x (not (consp x)))
-                 (add-fset-element-child element x)
-                 element))
-           content
-           :initial-value (make-fset-element "vcard" *vcard-namespace*))))
-
-
+  (let ((*default-namespace* *vcard-namespace*)
+        (*current-vcard-version* nil))
+    (stp:make-document
+     (fset:reduce (lambda (element x)
+                    (stp:append-child
+                     element
+                     (unwrap-stp-element x)))
+                  (parse-string* (many1? (vcard?)) str)
+                  :initial-value
+                  (let ((element (stp:make-element "vcards" *vcard-namespace*)))
+                    (cxml-stp:add-extra-namespace element "" *vcard-namespace*)
+                    element)))))
