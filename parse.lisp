@@ -48,9 +48,11 @@
   (fset:reduce (lambda (node x)
                  (stp:append-child
                   node
-                  (unwrap-stp-element x)))
-          (fset:@ fset-element :children)
-          :initial-value (fset:@ fset-element :node)))
+                  (typecase x
+                    (fset:map (unwrap-stp-element x))
+                    (t x))))
+               (fset:@ fset-element :children)
+               :initial-value (fset:@ fset-element :node)))
 
 (defun make-fset-element (name &optional (uri "" uri-supplied-p))
   (wrap-stp-element (apply #'stp:make-element name
