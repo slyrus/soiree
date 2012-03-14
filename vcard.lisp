@@ -87,25 +87,23 @@
    (<- result (content-line? "TEL"))
    (destructuring-bind (group name params value)
        result
-     (let ((tel-node (make-fset-element "tel" *vcard-namespace*)))
+     (let ((tel-node (make-fset-element "tel" *vcard-namespace*))
+           (param-element (stp:make-element "parameters" *vcard-namespace*)))
        (cond ((equal *current-vcard-version* "3.0")
               (let ((types (mapcan #'second
                                    (keep "type" params :test #'equal :key #'car))))
                 (cond ((member "pref" types :test #'string-equal)
-                       (setf tel-node
-                             (add-fset-element-child
-                              tel-node
-                              (let ((params-element
-                                      (make-fset-element "parameters" *vcard-namespace*)))
-                                (add-fset-element-child
-                                 params-element
-                                 (add-fset-element-child
-                                  (make-fset-element "pref" *vcard-namespace*)
-                                  (add-fset-element-child
-                                   (make-fset-element "integer" *vcard-namespace*)
-                                   (make-fset-text "1"))))))))))))
+                       (stp:append-child
+                        param-element
+                        (stp:append-child
+                         (stp:make-element "pref" *vcard-namespace*)
+                         (stp:append-child
+                          (stp:make-element "integer" *vcard-namespace*)
+                          (stp:make-text "1")))))))))
        (add-fset-element-child
-        tel-node
+        (if (plusp (stp:number-of-children param-element))
+            (add-fset-element-child tel-node param-element)
+            tel-node)
         (add-fset-element-child
          (make-fset-element "text" *vcard-namespace*)
          (make-fset-text value)))))))
