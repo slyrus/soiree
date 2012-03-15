@@ -11,11 +11,11 @@
 
 (defvar *icalendar-rng-schema* (cxml-rng:parse-compact *icalendar-rng-pathname*))
 
-(defun make-date-time-node (element-tag string)
+(defun make-fset-date-time-node (element-tag string)
   (add-fset-element-child
-   (make-fset-element element-tag *default-namespace*)
+   (make-fset-element element-tag *ical-namespace*)
    (add-fset-element-child
-    (make-fset-element "date-time" *default-namespace*)
+    (make-fset-element "date-time" *ical-namespace*)
     (make-fset-text string))))
 
 (defun date-time-node? (field-name element-tag)
@@ -23,7 +23,7 @@
    (<- result (content-line? field-name))
    (destructuring-bind (group name params value)
        result
-     (make-date-time-node element-tag value))))
+     (make-fset-date-time-node element-tag value))))
 
 (defun dtstamp? () (date-time-node? "DTSTAMP" "dtstamp"))
 (defun dtstart? () (date-time-node? "DTSTART" "dtstart"))
@@ -39,7 +39,6 @@
 (defun status? () (value-text-node? "STATUS" "status"))
 (defun transp? () (value-text-node? "TRANSP" "transp"))
 (defun recurid? () (value-text-node? "RECURID" "recurid"))
-
 
 
 (defun vevent? ()
