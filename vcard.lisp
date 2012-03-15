@@ -126,27 +126,37 @@
      (when ,var
        ,@body)))
 
-(defun extract-altid (params)
+(defun param-altid (params)
   (when-let (altid (caadar (keep "altid" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "altid" *vcard-namespace*)
                       (make-text-node altid))))
 
-(defun extract-language (params)
-  (when-let (language (caadar (keep "language" params :test #'string-equal :key #'car)))
+(defun param-language (params)
+  (when-let (language
+             (caadar (keep "language" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "language" *vcard-namespace*)
                       (make-text-node language "language-tag"))))
 
-(defun extract-pids (params)
+(defun param-pids (params)
   (when-let (pids
              (mapcan #'second (keep "pid" params :test #'string-equal :key #'car)))
-    (reduce (lambda (parent pid)
-              (stp:append-child 
-               parent
-               (stp:append-child
-                (stp:make-element "text" *vcard-namespace*)
-                (stp:make-text pid))))
-            pids
-            :initial-value (stp:make-element "pid" *vcard-namespace*))))
+    (reduce (lambda (parent pid) (stp:append-child parent (make-text-node pid)))
+            pids :initial-value (stp:make-element "pid" *vcard-namespace*))))
+
+(defun param-pref (params)
+  (when-let (pref
+             (caadar (keep "pref" params :test #'string-equal :key #'car)))
+    (stp:append-child (stp:make-element "pref" *vcard-namespace*)
+                      (make-text-node pref "integer"))))
+
+(defun param-types (params)
+  (when-let (types
+             (mapcan #'second (keep "type" params :test #'string-equal :key #'car)))
+    (reduce (lambda (parent type) (stp:append-child parent (make-text-node type)))
+            types :initial-value (stp:make-element "type" *vcard-namespace*))))
+
+(defun add-params (param-list params)
+  (remove nil (mapcar (lambda (x) (funcall x params)) param-list) :test 'eq))
 
 (defun title? ()
   (named-seq?
@@ -154,12 +164,11 @@
    (destructuring-bind (group name params value) result
      (let ((title-node (make-fset-element "title" *vcard-namespace*))
            (param-element (stp:make-element "parameters" *vcard-namespace*)))
-       (when-let (language-element (extract-language params))
-         (stp:append-child param-element language-element))
-       (when-let (altid-element (extract-altid params))
-         (stp:append-child param-element altid-element))
-       (when-let (pid-element (extract-pids params))
-         (stp:append-child param-element pid-element))
+       (let ((param-children (add-params
+                              (list #'param-language #'param-altid #'param-pids
+                                    #'param-pref #'param-types)
+                              params)))
+         (reduce #'stp:append-child param-children :initial-value param-element))
        (add-fset-element-child
         (if (plusp (stp:number-of-children param-element))
             (add-fset-element-child title-node param-element)
