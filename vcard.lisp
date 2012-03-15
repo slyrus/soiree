@@ -76,7 +76,21 @@
 (defun related? () (value-text-node? "RELATED" "related"))
 (defun rev? () (value-text-node? "REV" "rev"))
 
-(defun role? () (value-text-node? "ROLE" "role"))
+(defun role? ()
+  (named-seq?
+   (<- result (content-line? "ROLE"))
+   (destructuring-bind (group name params value) result
+     (let ((role-node (make-fset-element "role" *vcard-namespace*))
+           (param-element (extract-parameters
+                           params
+                           (list #'param-language #'param-altid #'param-pids
+                                 #'param-pref #'param-types))))
+       (add-fset-element-child
+        (if (plusp (stp:number-of-children param-element))
+            (add-fset-element-child role-node param-element)
+            role-node)
+        (make-fset-text-node "text" value))))))
+
 (defun gender? () (value-text-node? "GENDER" "gender"))
 (defun sound? () (value-text-node? "SOUND" "sound"))
 
@@ -171,9 +185,7 @@
         (if (plusp (stp:number-of-children param-element))
             (add-fset-element-child title-node param-element)
             title-node)
-        (add-fset-element-child
-         (make-fset-element "text" *vcard-namespace*)
-         (make-fset-text value)))))))
+        (make-fset-text-node "text" value))))))
 
 (defun tz? () (value-text-node? "TZ" "tz"))
 
