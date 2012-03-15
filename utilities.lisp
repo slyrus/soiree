@@ -39,3 +39,8 @@
   (apply #'remove-if-not (lambda (x) (funcall test x item))
          sequence (remove-keyword :test args)))
 
+(defmacro when-let ((var form) &body body)
+  `(let ((,var ,form))
+     (when ,var
+       ,@body)))
+

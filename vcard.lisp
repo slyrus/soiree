@@ -121,10 +121,13 @@
          (make-fset-element "text" *vcard-namespace*)
          (make-fset-text value)))))))
 
-(defmacro when-let ((var form) &body body)
-  `(let ((,var ,form))
-     (when ,var
-       ,@body)))
+(defun add-params (param-list params)
+  (remove nil (mapcar (lambda (x) (funcall x params)) param-list) :test 'eq))
+
+(defun extract-parameters (params functions)
+  (let ((param-element (stp:make-element "parameters" *vcard-namespace*)))
+    (let ((param-children (add-params functions params)))
+      (reduce #'stp:append-child param-children :initial-value param-element))))
 
 (defun param-altid (params)
   (when-let (altid (caadar (keep "altid" params :test #'string-equal :key #'car)))
@@ -155,20 +158,15 @@
     (reduce (lambda (parent type) (stp:append-child parent (make-text-node type)))
             types :initial-value (stp:make-element "type" *vcard-namespace*))))
 
-(defun add-params (param-list params)
-  (remove nil (mapcar (lambda (x) (funcall x params)) param-list) :test 'eq))
-
 (defun title? ()
   (named-seq?
    (<- result (content-line? "TITLE"))
    (destructuring-bind (group name params value) result
      (let ((title-node (make-fset-element "title" *vcard-namespace*))
-           (param-element (stp:make-element "parameters" *vcard-namespace*)))
-       (let ((param-children (add-params
-                              (list #'param-language #'param-altid #'param-pids
-                                    #'param-pref #'param-types)
-                              params)))
-         (reduce #'stp:append-child param-children :initial-value param-element))
+           (param-element (extract-parameters
+                           params
+                           (list #'param-language #'param-altid #'param-pids
+                                 #'param-pref #'param-types))))
        (add-fset-element-child
         (if (plusp (stp:number-of-children param-element))
             (add-fset-element-child title-node param-element)
