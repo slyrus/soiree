@@ -27,19 +27,19 @@
          (split-string value :delimiter #\;)
        (reduce (lambda (parent child)
                  (add-fset-element-child parent child))
-               (list (apply #'make-text-nodes "pobox"
+               (list (apply #'make-fset-text-nodes "pobox"
                             (split-string pobox))
-                     (apply #'make-text-nodes "ext"
+                     (apply #'make-fset-text-nodes "ext"
                             (split-string ext))
-                     (apply #'make-text-nodes "street"
+                     (apply #'make-fset-text-nodes "street"
                             (split-string street))
-                     (apply #'make-text-nodes "locality"
+                     (apply #'make-fset-text-nodes "locality"
                             (split-string locality))
-                     (apply #'make-text-nodes "region"
+                     (apply #'make-fset-text-nodes "region"
                             (split-string region))
-                     (apply #'make-text-nodes "code"
+                     (apply #'make-fset-text-nodes "code"
                             (split-string code))
-                     (apply #'make-text-nodes "country"
+                     (apply #'make-fset-text-nodes "country"
                             (split-string country)))
                :initial-value (make-fset-element "adr" *vcard-namespace*))))))
 
@@ -82,24 +82,37 @@
 
 (defun source? () (value-text-node? "SOURCE" "source"))
 
+(defun make-pref-element (&optional (value 1))
+  (stp:append-child
+   (stp:make-element "pref" *vcard-namespace*)
+   (stp:append-child
+    (stp:make-element "integer" *vcard-namespace*)
+    (stp:make-text (format nil "~A" value)))))
+
+(defparameter *tel-types* '("work" "home" "text" "voice" "fax"
+                            "cell" "video" "pager""textphone"))
+
 (defun tel? ()
   (named-seq?
    (<- result (content-line? "TEL"))
-   (destructuring-bind (group name params value)
-       result
+   (destructuring-bind (group name params value) result
      (let ((tel-node (make-fset-element "tel" *vcard-namespace*))
-           (param-element (stp:make-element "parameters" *vcard-namespace*)))
+           (param-element (stp:make-element "parameters" *vcard-namespace*))
+           (types (mapcan #'second
+                          (keep "type" params :test #'equal :key #'car))))
        (cond ((equal *current-vcard-version* "3.0")
-              (let ((types (mapcan #'second
-                                   (keep "type" params :test #'equal :key #'car))))
-                (cond ((member "pref" types :test #'string-equal)
-                       (stp:append-child
-                        param-element
-                        (stp:append-child
-                         (stp:make-element "pref" *vcard-namespace*)
-                         (stp:append-child
-                          (stp:make-element "integer" *vcard-namespace*)
-                          (stp:make-text "1")))))))))
+              (when (member "pref" types :test #'string-equal)
+                (stp:append-child param-element (make-pref-element)))))
+       (let ((tel-types (intersection types *tel-types* :test #'string-equal)))
+         (when tel-types
+           (let ((type-element (stp:make-element "type" *vcard-namespace*)))
+             (reduce
+              (lambda (parent child)
+                (stp:append-child parent
+                                  (make-text-node (string-downcase child))))
+              tel-types
+              :initial-value type-element)
+             (stp:append-child param-element type-element))))
        (add-fset-element-child
         (if (plusp (stp:number-of-children param-element))
             (add-fset-element-child tel-node param-element)
@@ -125,15 +138,15 @@
          (split-string value :delimiter #\;)
        (reduce (lambda (parent child)
                  (add-fset-element-child parent child))
-               (list (apply #'make-text-nodes "surname"
+               (list (apply #'make-fset-text-nodes "surname"
                             (split-string family-names))
-                     (apply #'make-text-nodes "given"
+                     (apply #'make-fset-text-nodes "given"
                             (split-string given-names))
-                     (apply #'make-text-nodes "additional"
+                     (apply #'make-fset-text-nodes "additional"
                             (split-string additional-names))
-                     (apply #'make-text-nodes "prefix"
+                     (apply #'make-fset-text-nodes "prefix"
                             (split-string honorific-prefixes))
-                     (apply #'make-text-nodes "suffix"
+                     (apply #'make-fset-text-nodes "suffix"
                             (split-string honorific-suffixes)))
                :initial-value (make-fset-element "n" *vcard-namespace*))))))
 

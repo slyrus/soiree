@@ -2,16 +2,19 @@
 (cl:defpackage :soiree-parse
   (:use :common-lisp :parser-combinators :soiree)
   (:export #:*default-namespace*
+
+           #:make-text-node
+
            #:wrap-stp-element
            #:unwrap-stp-element
            #:make-fset-element
            #:add-fset-element-child
            #:make-fset-text
-           #:make-text-node
-           #:make-text-nodes
-           #:make-value-text-node
-           #:make-uri-text-node
-           #:make-value-text-nodes
+           #:make-fset-text-node
+           #:make-fset-text-nodes
+           #:make-fset-value-text-node
+           #:make-fset-uri-text-node
+           #:make-fset-value-text-nodes
 
            #:crlf?
            #:qsafe-char?
@@ -40,6 +43,12 @@
 
 (defparameter *default-namespace* nil)
 
+;;; STP helper functions
+(defun make-text-node (text)
+  (stp:append-child
+   (stp:make-element "text" *default-namespace*)
+   (stp:make-text text)))
+
 ;;; functions for wrapping stp elements inside fset sets
 (defun wrap-stp-element (stp-element)
   (fset:map (:node stp-element) (:children (fset:seq))))
@@ -65,12 +74,12 @@
 (defun make-fset-text (string)
   (wrap-stp-element (stp:make-text string)))
 
-(defun make-text-node (element-tag string)
+(defun make-fset-text-node (element-tag string)
   (add-fset-element-child
    (make-fset-element element-tag *default-namespace*)
    (make-fset-text string)))
 
-(defun make-text-nodes (element-tag &rest strings)
+(defun make-fset-text-nodes (element-tag &rest strings)
   (reduce (lambda (element x)
             (add-fset-element-child
              element
@@ -78,21 +87,21 @@
           strings
           :initial-value (make-fset-element element-tag *default-namespace*)))
 
-(defun make-value-text-node (element-tag string)
+(defun make-fset-value-text-node (element-tag string)
   (add-fset-element-child
    (make-fset-element element-tag *default-namespace*)
    (add-fset-element-child
     (make-fset-element "text" *default-namespace*)
     (make-fset-text string))))
 
-(defun make-uri-text-node (element-tag string)
+(defun make-fset-uri-text-node (element-tag string)
   (add-fset-element-child
    (make-fset-element element-tag *default-namespace*)
    (add-fset-element-child
     (make-fset-element "uri" *default-namespace*)
     (make-fset-text string))))
 
-(defun make-value-text-nodes (element-tag &rest strings)
+(defun make-fset-value-text-nodes (element-tag &rest strings)
   (reduce (lambda (element x)
             (add-fset-element-child
              element
@@ -228,14 +237,14 @@
    (<- result (content-line? field-name))
    (destructuring-bind (group name params value)
        result
-     (apply #'make-value-text-nodes element-tag (split-string value)))))
+     (apply #'make-fset-value-text-nodes element-tag (split-string value)))))
 
 (defun uri-text-node? (field-name element-tag)
   (named-seq?
    (<- result (content-line? field-name))
    (destructuring-bind (group name params value)
        result
-     (make-uri-text-node element-tag value))))
+     (make-fset-uri-text-node element-tag value))))
 
 (defun geo? () (uri-text-node? "GEO" "geo"))
 
