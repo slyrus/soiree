@@ -136,6 +136,18 @@
     (stp:append-child (stp:make-element "language" *vcard-namespace*)
                       (make-text-node language "language-tag"))))
 
+(defun extract-pids (params)
+  (when-let (pids
+             (mapcan #'second (keep "pid" params :test #'string-equal :key #'car)))
+    (reduce (lambda (parent pid)
+              (stp:append-child 
+               parent
+               (stp:append-child
+                (stp:make-element "text" *vcard-namespace*)
+                (stp:make-text pid))))
+            pids
+            :initial-value (stp:make-element "pid" *vcard-namespace*))))
+
 (defun title? ()
   (named-seq?
    (<- result (content-line? "TITLE"))
@@ -146,6 +158,8 @@
          (stp:append-child param-element language-element))
        (when-let (altid-element (extract-altid params))
          (stp:append-child param-element altid-element))
+       (when-let (pid-element (extract-pids params))
+         (stp:append-child param-element pid-element))
        (add-fset-element-child
         (if (plusp (stp:number-of-children param-element))
             (add-fset-element-child title-node param-element)
