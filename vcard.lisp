@@ -99,7 +99,7 @@
      (let ((tel-node (make-fset-element "tel" *vcard-namespace*))
            (param-element (stp:make-element "parameters" *vcard-namespace*))
            (types (mapcan #'second
-                          (keep "type" params :test #'equal :key #'car))))
+                          (keep "type" params :test #'string-equal :key #'car))))
        (cond ((equal *current-vcard-version* "3.0")
               (when (member "pref" types :test #'string-equal)
                 (stp:append-child param-element (make-pref-element)))))
@@ -121,7 +121,38 @@
          (make-fset-element "text" *vcard-namespace*)
          (make-fset-text value)))))))
 
-(defun title? () (value-text-node? "TITLE" "title"))
+(defmacro when-let ((var form) &body body)
+  `(let ((,var ,form))
+     (when ,var
+       ,@body)))
+
+(defun extract-altid (params)
+  (when-let (altid (caadar (keep "altid" params :test #'string-equal :key #'car)))
+    (stp:append-child (stp:make-element "altid" *vcard-namespace*)
+                      (make-text-node altid))))
+
+(defun extract-language (params)
+  (when-let (language (caadar (keep "language" params :test #'string-equal :key #'car)))
+    (stp:append-child (stp:make-element "language" *vcard-namespace*)
+                      (make-text-node language "language-tag"))))
+
+(defun title? ()
+  (named-seq?
+   (<- result (content-line? "TITLE"))
+   (destructuring-bind (group name params value) result
+     (let ((title-node (make-fset-element "title" *vcard-namespace*))
+           (param-element (stp:make-element "parameters" *vcard-namespace*)))
+       (when-let (language-element (extract-language params))
+         (stp:append-child param-element language-element))
+       (when-let (altid-element (extract-altid params))
+         (stp:append-child param-element altid-element))
+       (add-fset-element-child
+        (if (plusp (stp:number-of-children param-element))
+            (add-fset-element-child title-node param-element)
+            title-node)
+        (add-fset-element-child
+         (make-fset-element "text" *vcard-namespace*)
+         (make-fset-text value)))))))
 
 (defun tz? () (value-text-node? "TZ" "tz"))
 

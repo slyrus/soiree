@@ -44,7 +44,7 @@
 (defparameter *default-namespace* nil)
 
 ;;; STP helper functions
-(defun make-text-node (text)
+(defun make-text-node (text &optional (name "text"))
   (stp:append-child
    (stp:make-element "text" *default-namespace*)
    (stp:make-text text)))
