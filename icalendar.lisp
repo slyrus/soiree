@@ -12,17 +12,17 @@
 
 (defvar *ical-rng-schema* (cxml-rng:parse-compact *ical-rng-pathname*))
 
-(defun make-fset-date-time-node (element-tag string)
-  (add-fset-element-child
-   (make-fset-element (string-downcase element-tag) *ical-namespace*)
-   (add-fset-element-child
-    (make-fset-element "date-time" *ical-namespace*)
-    (make-fset-text string))))
+(defun make-date-time-node (element-tag string)
+  (stp:append-child
+   (stp:make-element (string-downcase element-tag) *ical-namespace*)
+   (stp:append-child
+    (stp:make-element "date-time" *ical-namespace*)
+    (stp:make-text string))))
 
 (defun date-time-node (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group params))
-    (make-fset-date-time-node name value)))
+    (make-date-time-node name value)))
 
 ;;; FIXME!! dtstamp and dtstart (and friends?) need to convert from
 ;;; icalendar style dates/times to xcal dates and times
@@ -30,102 +30,102 @@
 (defun dtstamp (result) (date-time-node result))
 (defun dtstart (result) (date-time-node result))
 
-(defun make-fset-cal-address-node (element-tag string)
-  (add-fset-element-child
-   (make-fset-element (string-downcase element-tag) *ical-namespace*)
-   (add-fset-element-child
-    (make-fset-element "cal-address" *ical-namespace*)
-    (make-fset-text string))))
+(defun make-cal-address-node (element-tag string)
+  (stp:append-child
+   (stp:make-element (string-downcase element-tag) *ical-namespace*)
+   (stp:append-child
+    (stp:make-element "cal-address" *ical-namespace*)
+    (stp:make-text string))))
 
 (defun cal-address-node (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group params))
-    (make-fset-cal-address-node (string-downcase name) value)))
+    (make-cal-address-node (string-downcase name) value)))
 
 (defun attendee (result) (cal-address-node result))
-(defun class (result) (value-text-node result))
-(defun created (result) (value-text-node result))
-(defun description (result) (value-text-node result))
-(defun last-mod (result) (value-text-node result))
-(defun location (result) (value-text-node result))
+(defun class (result) (make-element-with-text* result))
+(defun created (result) (make-element-with-text* result))
+(defun description (result) (make-element-with-text* result))
+(defun last-mod (result) (make-element-with-text* result))
+(defun location (result) (make-element-with-text* result))
 
 (defun organizer (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group params))
-    (make-fset-cal-address-node name value)))
+    (make-cal-address-node name value)))
 
-(defun priority (result) (value-text-node result))
-(defun seq (result) (value-text-node result))
-(defun status (result) (value-text-node result))
-(defun transp (result) (value-text-node result))
-(defun recurid (result) (value-text-node result))
+(defun priority (result) (make-element-with-text* result))
+(defun seq (result) (make-element-with-text* result))
+(defun status (result) (make-element-with-text* result))
+(defun transp (result) (make-element-with-text* result))
+(defun recurid (result) (make-element-with-text* result))
 
 (defun vevent? ()
   (named-seq?
    "BEGIN" ":" "VEVENT" #\Return #\Newline
    (<- content (many? (content-line?)))
    "END" ":" "VEVENT" #\Return #\Newline
-   (add-fset-element-child
-    (make-fset-element "vevent" *ical-namespace*)
-    (fset:reduce (lambda (element x)
-                   (let ((x (handle-content-line x)))
-                     (if (and x (not (consp x)))
-                         (add-fset-element-child element x)
-                         element)))
-                 content
-                 :initial-value (make-fset-element "properties" *ical-namespace*)))))
+   (stp:append-child
+    (stp:make-element "vevent" *ical-namespace*)
+    (reduce (lambda (element x)
+              (let ((x (handle-content-line x)))
+                (if (and x (not (consp x)))
+                    (stp:append-child element x)
+                    element)))
+            content
+            :initial-value (stp:make-element "properties" *ical-namespace*)))))
 
 (defun vtodo? ()
   (named-seq?
    "BEGIN" ":" "VTODO" #\Return #\Newline
    (<- content (many? (content-line?)))
    "END" ":" "VTODO" #\Return #\Newline
-   (fset:reduce (lambda (element x)
-                  (let ((x (handle-content-line x)))
-                    (if (and x (not (consp x)))
-                        (add-fset-element-child element x)
-                        element)))
-                content
-                :initial-value (make-fset-element "vtodo" *ical-namespace*))))
+   (reduce (lambda (element x)
+             (let ((x (handle-content-line x)))
+               (if (and x (not (consp x)))
+                   (stp:append-child element x)
+                   element)))
+           content
+           :initial-value (stp:make-element "vtodo" *ical-namespace*))))
 
 (defun vjournal? ()
   (named-seq?
    "BEGIN" ":" "VJOURNAL" #\Return #\Newline
    (<- content (many? (content-line?)))
    "END" ":" "VJOURNAL" #\Return #\Newline
-   (fset:reduce (lambda (element x)
-                  (let ((x (handle-content-line x)))
-                    (if (and x (not (consp x)))
-                        (add-fset-element-child element x)
-                        element)))
-                content
-                :initial-value (make-fset-element "vjournal" *ical-namespace*))))
+   (reduce (lambda (element x)
+             (let ((x (handle-content-line x)))
+               (if (and x (not (consp x)))
+                   (stp:append-child element x)
+                   element)))
+           content
+           :initial-value (stp:make-element "vjournal" *ical-namespace*))))
 
 (defun vfreebusy? ()
   (named-seq?
    "BEGIN" ":" "VFREEBUSY" #\Return #\Newline
    (<- content (many? (content-line?)))
    "END" ":" "VFREEBUSY" #\Return #\Newline
-   (fset:reduce (lambda (element x)
-                  (let ((x (handle-content-line x)))
-                    (if (and x (not (consp x)))
-                        (add-fset-element-child element x)
-                        element)))
-                content
-                :initial-value (make-fset-element "vfreebusy" *ical-namespace*))))
+   (reduce (lambda (element x)
+             (let ((x (handle-content-line x)))
+               (if (and x (not (consp x)))
+                   (stp:append-child element x)
+                   element)))
+           content
+           :initial-value (stp:make-element "vfreebusy" *ical-namespace*))))
 
 (defun vtimezone? ()
-(named-seq?
+  (named-seq?
    "BEGIN" ":" "VTIMEZONE" #\Return #\Newline
    (<- content (many? (content-line?)))
    "END" ":" "VTIMEZONE" #\Return #\Newline
-   (fset:reduce (lambda (element x)
-                  (let ((x (handle-content-line x)))
-                    (if (and x (not (consp x)))
-                        (add-fset-element-child element x)
-                        element)))
-                content
-                :initial-value (make-fset-element "vtimezone" *ical-namespace*))))
+   (reduce (lambda (element x)
+             (let ((x (handle-content-line x)))
+               (if (and x (not (consp x)))
+                   (stp:append-child element x)
+                   element)))
+           content
+           :initial-value (stp:make-element "vtimezone" *ical-namespace*))))
 
 (defun component? ()
   (choices (vevent?)
@@ -134,8 +134,8 @@
            (vfreebusy?)
            (vtimezone?)))
 
-(defun calscale (result) (value-text-node result))
-(defun method (result) (value-text-node result))
+(defun calscale (result) (make-element-with-text* result))
+(defun method (result) (make-element-with-text* result))
 
 (defun calprop? ()
   (content-line?))
@@ -161,26 +161,26 @@
    (<- content (many1? (component?)))
    "END" ":" "VCALENDAR" #\Return #\Newline
    
-   (add-fset-element-child
-    (add-fset-element-child
-     (make-fset-element "vcalendar" *ical-namespace*)
-     ;;; FIXME! We're not really parsing the properties, just cheating here!
-     (add-fset-element-child
-      (add-fset-element-child
-       (make-fset-element "properties" *ical-namespace*)
-       (add-fset-element-child
-        (make-fset-element "version" *ical-namespace*)
-        (make-text-node "2.0")))
-      (add-fset-element-child
-       (make-fset-element "prodid" *ical-namespace*)
-       (make-text-node "bar"))))
-    (fset:reduce (lambda (element x)
-                  (if (and x (not (consp x)))
-                      (add-fset-element-child element x)
-                      element))
-                content
-                :initial-value
-                (make-fset-element "components" *ical-namespace*)))))
+   (stp:append-child
+    (stp:append-child
+     (stp:make-element "vcalendar" *ical-namespace*)
+     ;; FIXME! We're not really parsing the properties, just cheating here!
+     (stp:append-child
+      (stp:append-child
+       (stp:make-element "properties" *ical-namespace*)
+       (stp:append-child
+        (stp:make-element "version" *ical-namespace*)
+        (make-element-with-text "text" "2.0")))
+      (stp:append-child
+       (stp:make-element "prodid" *ical-namespace*)
+       (make-element-with-text "text" "bar"))))
+    (reduce (lambda (element x)
+              (if (and x (not (consp x)))
+                  (stp:append-child element x)
+                  element))
+            content
+            :initial-value
+            (stp:make-element "components" *ical-namespace*)))))
 
 (defun icalendar? ()
   (many1? (named-seq?
@@ -191,9 +191,6 @@
 (defun parse-icalendar (str)
   (let ((*default-namespace* *ical-namespace*))
     (stp:make-document
-     (fset:reduce (lambda (element x)
-                    (stp:append-child
-                     element
-                     (unwrap-stp-element x)))
-                  (parse-string* (icalendar?) str)
-                  :initial-value (stp:make-element "icalendar" *ical-namespace*)))))
+     (reduce #'stp:append-child
+             (parse-string* (icalendar?) str)
+             :initial-value (stp:make-element "icalendar" *ical-namespace*)))))

@@ -5,20 +5,12 @@
            #:*default-namespace*
 
            #:make-text-node
+           #:make-text-nodes
 
-           #:wrap-stp-element
-           #:unwrap-stp-element
-           #:make-fset-element
-           #:add-fset-element-child
-           #:make-fset-text
-           #:make-fset-text-node
-           #:make-fset-text-nodes
-           #:make-fset-value-text-node
-           #:make-fset-uri-text-node
-           #:make-fset-value-text-nodes
+           #:make-element-with-text
 
-           #:value-text-node
-           #:uri-text-node
+           #:make-element-with-text*
+           #:make-element-with-uri*
 
            #:crlf?
            #:qsafe-char?
@@ -47,72 +39,18 @@
 (defparameter *strict-parsing* t)
 
 ;;; STP helper functions
-(defun make-text-node (text &optional (name "text"))
+(defun make-element-with-text (element-name text)
   (stp:append-child
-   (stp:make-element name *default-namespace*)
+   (stp:make-element element-name *default-namespace*)
    (stp:make-text text)))
 
-;;; functions for wrapping stp elements inside fset sets
-(defun wrap-stp-element (stp-element)
-  (fset:map (:node stp-element) (:children (fset:seq))))
-
-(defun unwrap-stp-element (fset-element)
-  (fset:reduce (lambda (node x)
-                 (stp:append-child
-                  node
-                  (typecase x
-                    (fset:map (unwrap-stp-element x))
-                    (t x))))
-               (fset:@ fset-element :children)
-               :initial-value (fset:@ fset-element :node)))
-
-(defun make-fset-element (name &optional (uri "" uri-supplied-p))
-  (wrap-stp-element (apply #'stp:make-element name
-                           (when uri-supplied-p (list uri)))))
-
-(defun add-fset-element-child (element child)
-  (fset:appendf (fset:@ element :children) (list child))
-  element)
-
-(defun make-fset-text (string)
-  (wrap-stp-element (stp:make-text string)))
-
-(defun make-fset-text-node (element-tag string)
-  (add-fset-element-child
-   (make-fset-element element-tag *default-namespace*)
-   (make-fset-text string)))
-
-(defun make-fset-text-nodes (element-tag &rest strings)
+(defun make-text-nodes (element-tag &rest strings)
   (reduce (lambda (element x)
-            (add-fset-element-child
+            (stp:append-child
              element
-             (make-fset-text x)))
+             (stp:make-text x)))
           strings
-          :initial-value (make-fset-element element-tag *default-namespace*)))
-
-(defun make-fset-value-text-node (element-tag string)
-  (add-fset-element-child
-   (make-fset-element element-tag *default-namespace*)
-   (add-fset-element-child
-    (make-fset-element "text" *default-namespace*)
-    (make-fset-text string))))
-
-(defun make-fset-uri-text-node (element-tag string)
-  (add-fset-element-child
-   (make-fset-element element-tag *default-namespace*)
-   (add-fset-element-child
-    (make-fset-element "uri" *default-namespace*)
-    (make-fset-text string))))
-
-(defun make-fset-value-text-nodes (element-tag &rest strings)
-  (reduce (lambda (element x)
-            (add-fset-element-child
-             element
-             (add-fset-element-child
-              (make-fset-element "text" *default-namespace*)
-              (make-fset-text x))))
-          strings
-          :initial-value (make-fset-element element-tag *default-namespace*)))
+          :initial-value (stp:make-element element-tag *default-namespace*)))
 
 (def-cached-parser crlf?
   (seq-list? #\Return #\Newline))
@@ -235,23 +173,36 @@
    (<- name (between? (alphanum-or-dash?) 1 nil 'string))
    (concatenate 'string (string x) "-" name)))
 
-(defun value-text-node (result)
+(defun text-element (tag string))
+
+(defun make-element-with-text* (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group params))
-    (apply #'make-fset-value-text-nodes (string-downcase name) (split-string value))))
+    (reduce (lambda (element x)
+              (stp:append-child
+               element
+               (stp:append-child
+                (stp:make-element "text" *default-namespace*)
+                (stp:make-text x))))
+            (split-string value)
+            :initial-value (stp:make-element (string-downcase name) *default-namespace*))))
 
-(defun uri-text-node (result)
+(defun make-element-with-uri* (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group params))
-    (make-fset-uri-text-node (string-downcase name) value)))
+    (stp:append-child
+     (stp:make-element (string-downcase name) *default-namespace*)
+     (stp:append-child
+      (stp:make-element "uri" *default-namespace*)
+      (stp:make-text value)))))
 
-(defun geo (result) (uri-text-node result))
+(defun geo (result) (make-element-with-uri* result))
 
-(defun uid (result) (uri-text-node result))
-(defun url (result) (uri-text-node result))
+(defun uid (result) (make-element-with-uri* result))
+(defun url (result) (make-element-with-uri* result))
 
 (defun version (result) nil)
-(defun prodid (result) (value-text-node result))
+(defun prodid (result) (make-element-with-text* result))
 
 (defun long-line-extension? ()
   (named-seq?

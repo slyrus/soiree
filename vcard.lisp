@@ -26,26 +26,28 @@
   (when-let (language
              (caadar (keep "language" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "language" *vcard-namespace*)
-                      (make-text-node language "language-tag"))))
+                      (make-element-with-text "language-tag" language))))
 
 ;; 5.2 pref
 (defun param-pref (params)
   (when-let (pref
              (caadar (keep "pref" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "pref" *vcard-namespace*)
-                      (make-text-node pref "integer"))))
+                      (make-element-with-text "integer" pref))))
 
 ;; Note that there is no section 5.3 in the spec!
 ;; 5.4 altid
 (defun param-altid (params)
   (when-let (altid (caadar (keep "altid" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "altid" *vcard-namespace*)
-                      (make-text-node altid))))
+                      (make-element-with-text "text" altid))))
 ;; 5.5 pid
 (defun param-pid (params)
   (when-let (pids
              (mapcan #'second (keep "pid" params :test #'string-equal :key #'car)))
-    (reduce (lambda (parent pid) (stp:append-child parent (make-text-node pid)))
+    (reduce (lambda (parent pid)
+              (stp:append-child parent
+                                (make-element-with-text "text" pid)))
             pids :initial-value (stp:make-element "pid" *vcard-namespace*))))
 
 ;; 5.6 type
@@ -53,7 +55,8 @@
   (when-let (types
              (mapcan #'second (keep "type" params :test #'string-equal :key #'car)))
     (reduce (lambda (parent type)
-              (stp:append-child parent (make-text-node type)))
+              (stp:append-child parent
+                                (make-element-with-text "text" type)))
             types :initial-value (stp:make-element "type" *vcard-namespace*))))
 
 ;; 5.7 mediatype
@@ -61,7 +64,7 @@
   (when-let (mediatype
              (caadar (keep "mediatype" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "mediatype" *vcard-namespace*)
-                      (make-text-node mediatype "text"))))
+                      (make-element-with-text "text" mediatype))))
 
 ;; 5.8 calscale
 (defparameter *calscales* '("gregorian"))
@@ -73,7 +76,7 @@
       (unless (cl:member calscale *calscales* :test #'string-equal)
         (error "Unknown calscale: ~A" calscale)))
     (stp:append-child (stp:make-element "calscale" *vcard-namespace*)
-                      (make-text-node calscale "text"))))
+                      (make-element-with-text "text" calscale))))
 
 ;; 5.9 sort-as TBD
 ;; 5.10 geo TBD
@@ -95,34 +98,34 @@
 (defun source (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))
-    (let ((source-node (make-fset-element "source" *vcard-namespace*))
+    (let ((source-node (stp:make-element "source" *vcard-namespace*))
           (param-element (extract-parameters
                           params
                           (list #'param-altid #'param-pid #'param-pref
                                 #'param-mediatype))))
-      (add-fset-element-child
+      (stp:append-child
        (if (plusp (stp:number-of-children param-element))
-           (add-fset-element-child source-node param-element)
+           (stp:append-child source-node param-element)
            source-node)
-       (make-fset-text-node "uri" value)))))
+       (make-element-with-text "uri" value)))))
 
 ;; 6.1.4 kind
-(defun kind (result) (value-text-node result))
+(defun kind (result) (make-element-with-text* result))
 
 ;; 6.2.1 fn
 (defun fn (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))
-    (let ((fn-node (make-fset-element "fn" *vcard-namespace*))
+    (let ((fn-node (stp:make-element "fn" *vcard-namespace*))
           (param-element (extract-parameters
                           params
                           (list #'param-language #'param-altid #'param-pid
                                 #'param-pref #'param-type))))
-      (add-fset-element-child
+      (stp:append-child
        (if (plusp (stp:number-of-children param-element))
-           (add-fset-element-child fn-node param-element)
+           (stp:append-child fn-node param-element)
            fn-node)
-       (make-fset-text-node "text" value)))))
+       (make-element-with-text "text" value)))))
 
 ;; 6.2.2 n
 (defun n (result)
@@ -135,81 +138,83 @@
                          honorific-suffixes)
         (split-string value :delimiter #\;)
       (reduce (lambda (parent child)
-                (add-fset-element-child parent child))
-              (list (apply #'make-fset-text-nodes "surname"
+                (stp:append-child parent child))
+              (list (apply #'make-text-nodes "surname"
                            (split-string family-names))
-                    (apply #'make-fset-text-nodes "given"
+                    (apply #'make-text-nodes "given"
                            (split-string given-names))
-                    (apply #'make-fset-text-nodes "additional"
+                    (apply #'make-text-nodes "additional"
                            (split-string additional-names))
-                    (apply #'make-fset-text-nodes "prefix"
+                    (apply #'make-text-nodes "prefix"
                            (split-string honorific-prefixes))
-                    (apply #'make-fset-text-nodes "suffix"
+                    (apply #'make-text-nodes "suffix"
                            (split-string honorific-suffixes)))
-              :initial-value (make-fset-element "n" *vcard-namespace*)))))
+              :initial-value (stp:make-element "n" *vcard-namespace*)))))
 
 ;; 6.2.3 nickname
 (defun nickname (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))
-    (let ((nickname-node (make-fset-element "nickname" *vcard-namespace*))
+    (let ((nickname-node (stp:make-element "nickname" *vcard-namespace*))
           (param-element (extract-parameters
                           params
                           (list #'param-language #'param-altid #'param-pid
                                 #'param-pref #'param-type))))
-      (reduce #'add-fset-element-child
-              (mapcar #'make-text-node (split-string value))
+      (reduce #'stp:append-child
+              (mapcar (lambda (name)
+                        (make-element-with-text "text" name))
+                      (split-string value))
               :initial-value (if (plusp (stp:number-of-children param-element))
-                                 (add-fset-element-child nickname-node param-element)
+                                 (stp:append-child nickname-node param-element)
                                  nickname-node)))))
 
 ;; 6.2.4 photo
 (defun photo (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))
-    (let ((photo-node (make-fset-element "photo" *vcard-namespace*))
+    (let ((photo-node (stp:make-element "photo" *vcard-namespace*))
           (param-element (extract-parameters
                           params
                           (list #'param-altid #'param-pid #'param-pref
                                 #'param-type #'param-mediatype))))
-      (add-fset-element-child
+      (stp:append-child
        (if (plusp (stp:number-of-children param-element))
-           (add-fset-element-child photo-node param-element)
+           (stp:append-child photo-node param-element)
            photo-node)
-       (make-fset-text-node "uri" value)))))
+       (make-element-with-text "uri" value)))))
 
 ;; 6.2.5 bday
 ;; FIXME: we should support the various data elements, instead of just text
 (defun bday (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))
-    (let ((bday-node (make-fset-element "bday" *vcard-namespace*))
+    (let ((bday-node (stp:make-element "bday" *vcard-namespace*))
           (param-element (extract-parameters
                           params
                           (list #'param-altid #'param-calscale))))
-      (add-fset-element-child
+      (stp:append-child
        (if (plusp (stp:number-of-children param-element))
-           (add-fset-element-child bday-node param-element)
+           (stp:append-child bday-node param-element)
            bday-node)
-       (make-fset-text-node "text" value)))))
+       (make-element-with-text "text" value)))))
 
 ;; 6.2.6 anniversary
 ;; FIXME: we should support the various data elements, instead of just text
 (defun anniversary (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))
-    (let ((anniversary-node (make-fset-element "anniversary" *vcard-namespace*))
+    (let ((anniversary-node (stp:make-element "anniversary" *vcard-namespace*))
           (param-element (extract-parameters
                           params
                           (list #'param-altid #'param-calscale))))
-      (add-fset-element-child
+      (stp:append-child
        (if (plusp (stp:number-of-children param-element))
-           (add-fset-element-child anniversary-node param-element)
+           (stp:append-child anniversary-node param-element)
            anniversary-node)
-       (make-fset-text-node "text" value)))))
+       (make-element-with-text "text" value)))))
 
 ;; 6.2.7 gender
-(defun gender (result) (value-text-node result))
+(defun gender (result) (make-element-with-text* result))
 
 (defun adr (result)
   (destructuring-bind (group name params value) result
@@ -217,91 +222,91 @@
     (destructuring-bind (pobox ext street locality region code country)
         (split-string value :delimiter #\;)
       (reduce (lambda (parent child)
-                (add-fset-element-child parent child))
-              (list (apply #'make-fset-text-nodes "pobox"
+                (stp:append-child parent child))
+              (list (apply #'make-text-nodes "pobox"
                            (split-string pobox))
-                    (apply #'make-fset-text-nodes "ext"
+                    (apply #'make-text-nodes "ext"
                            (split-string ext))
-                    (apply #'make-fset-text-nodes "street"
+                    (apply #'make-text-nodes "street"
                            (split-string street))
-                    (apply #'make-fset-text-nodes "locality"
+                    (apply #'make-text-nodes "locality"
                            (split-string locality))
-                    (apply #'make-fset-text-nodes "region"
+                    (apply #'make-text-nodes "region"
                            (split-string region))
-                    (apply #'make-fset-text-nodes "code"
+                    (apply #'make-text-nodes "code"
                            (split-string code))
-                    (apply #'make-fset-text-nodes "country"
+                    (apply #'make-text-nodes "country"
                            (split-string country)))
-              :initial-value (make-fset-element "adr" *vcard-namespace*)))))
+              :initial-value (stp:make-element "adr" *vcard-namespace*)))))
 
-(defun caladruri (result) (value-text-node result))
-(defun caluri (result) (value-text-node result))
+(defun caladruri (result) (make-element-with-text* result))
+(defun caluri (result) (make-element-with-text* result))
 
 ;; fix me -- categories needs to accept multiple values
-(defun categories (result) (value-text-node result))
+(defun categories (result) (make-element-with-text* result))
 
-(defun clientpidmap (result) (value-text-node result))
-(defun email (result) (value-text-node result))
+(defun clientpidmap (result) (make-element-with-text* result))
+(defun email (result) (make-element-with-text* result))
 
-(defun fburl (result) (uri-text-node result))
+(defun fburl (result) (make-element-with-uri* result))
 
-(defun impp (result) (uri-text-node result))
-(defun key (result) (uri-text-node result))
+(defun impp (result) (make-element-with-uri* result))
+(defun key (result) (make-element-with-uri* result))
 
 ;;; FIXME LANG is broken
-(defun lang (result) (value-text-node result))
+(defun lang (result) (make-element-with-text* result))
 
-(defun member (result) (value-text-node result))
+(defun member (result) (make-element-with-text* result))
 
-(defun note (result) (value-text-node result))
-(defun org (result) (value-text-node result))
+(defun note (result) (make-element-with-text* result))
+(defun org (result) (make-element-with-text* result))
 
-(defun related (result) (value-text-node result))
-(defun rev (result) (value-text-node result))
+(defun related (result) (make-element-with-text* result))
+(defun rev (result) (make-element-with-text* result))
 
 (defun role (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))     
-    (let ((role-node (make-fset-element "role" *vcard-namespace*))
+    (let ((role-node (stp:make-element "role" *vcard-namespace*))
           (param-element (extract-parameters
                           params
                           (list #'param-language #'param-altid #'param-pid
                                 #'param-pref #'param-type))))
-      (add-fset-element-child
+      (stp:append-child
        (if (plusp (stp:number-of-children param-element))
-           (add-fset-element-child role-node param-element)
+           (stp:append-child role-node param-element)
            role-node)
-       (make-fset-text-node "text" value)))))
+       (make-element-with-text "text" value)))))
 
 (defun geo (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))
-    (let ((geo-node (make-fset-element "geo" *vcard-namespace*))
+    (let ((geo-node (stp:make-element "geo" *vcard-namespace*))
           (param-element (extract-parameters
                           params
                           (list #'param-altid #'param-pid #'param-pref
                                 #'param-type #'param-mediatype))))
-      (add-fset-element-child
+      (stp:append-child
        (if (plusp (stp:number-of-children param-element))
-           (add-fset-element-child geo-node param-element)
+           (stp:append-child geo-node param-element)
            geo-node)
-       (make-fset-text-node "uri" value)))))
+       (make-element-with-text "uri" value)))))
 
 (defun logo (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))
-    (let ((logo-node (make-fset-element "logo" *vcard-namespace*))
+    (let ((logo-node (stp:make-element "logo" *vcard-namespace*))
           (param-element (extract-parameters
                           params
                           (list #'param-language #'param-altid #'param-pid
                                 #'param-pref #'param-type #'param-mediatype))))
-      (add-fset-element-child
+      (stp:append-child
        (if (plusp (stp:number-of-children param-element))
-           (add-fset-element-child logo-node param-element)
+           (stp:append-child logo-node param-element)
            logo-node)
-       (make-fset-text-node "uri" value)))))
+       (make-element-with-text "uri" value)))))
 
-(defun sound (result) (value-text-node result))
+(defun sound (result) (make-element-with-text* result))
 
 (defun make-pref-element (&optional (value 1))
   (stp:append-child
@@ -316,7 +321,7 @@
 (defun tel (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))
-    (let ((tel-node (make-fset-element "tel" *vcard-namespace*))
+    (let ((tel-node (stp:make-element "tel" *vcard-namespace*))
           (param-element (stp:make-element "parameters" *vcard-namespace*))
           (types (mapcan #'second
                          (keep "type" params :test #'string-equal :key #'car))))
@@ -329,33 +334,33 @@
             (reduce
              (lambda (parent child)
                (stp:append-child parent
-                                 (make-text-node (string-downcase child))))
+                                 (make-element-with-text "text" (string-downcase child))))
              tel-types
              :initial-value type-element)
             (stp:append-child param-element type-element))))
-      (add-fset-element-child
+      (stp:append-child
        (if (plusp (stp:number-of-children param-element))
-           (add-fset-element-child tel-node param-element)
+           (stp:append-child tel-node param-element)
            tel-node)
-       (add-fset-element-child
-        (make-fset-element "text" *vcard-namespace*)
-        (make-fset-text value))))))
+       (stp:append-child
+        (stp:make-element "text" *vcard-namespace*)
+        (stp:make-text value))))))
 
 (defun title (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))
-    (let ((title-node (make-fset-element "title" *vcard-namespace*))
+    (let ((title-node (stp:make-element "title" *vcard-namespace*))
           (param-element (extract-parameters
                           params
                           (list #'param-language #'param-altid #'param-pid
                                 #'param-pref #'param-type))))
-      (add-fset-element-child
+      (stp:append-child
        (if (plusp (stp:number-of-children param-element))
-           (add-fset-element-child title-node param-element)
+           (stp:append-child title-node param-element)
            title-node)
-       (make-fset-text-node "text" value)))))
+       (make-element-with-text "text" value)))))
 
-(defun tz (result) (value-text-node result))
+(defun tz (result) (make-element-with-text* result))
 
 (defun version (result) 
   (destructuring-bind (group name params value) result
@@ -390,24 +395,21 @@
    (<- content (many1?
                 (content-line?)))
    "END" ":" "VCARD" #\Return #\Newline
-   (fset:reduce (lambda (element x)
-                  (let ((x (handle-content-line x)))
-                    (if (and x (not (consp x)))
-                        (add-fset-element-child element x)
-                        element)))
-                content
-                :initial-value (make-fset-element "vcard" *vcard-namespace*))))
+   (reduce (lambda (element x)
+             (let ((x (handle-content-line x)))
+               (if (and x (not (consp x)))
+                   (stp:append-child element x)
+                   element)))
+           content
+           :initial-value (stp:make-element "vcard" *vcard-namespace*))))
 
 (defun parse-vcard (str)
   (let ((*default-namespace* *vcard-namespace*)
         (*current-vcard-version* nil))
     (stp:make-document
-     (fset:reduce (lambda (element x)
-                    (stp:append-child
-                     element
-                     (unwrap-stp-element x)))
-                  (parse-string* (many1? (vcard?)) str)
-                  :initial-value
-                  (let ((element (stp:make-element "vcards" *vcard-namespace*)))
-                    (cxml-stp:add-extra-namespace element "" *vcard-namespace*)
-                    element)))))
+     (reduce #'stp:append-child
+             (parse-string* (many1? (vcard?)) str)
+             :initial-value
+             (let ((element (stp:make-element "vcards" *vcard-namespace*)))
+               (cxml-stp:add-extra-namespace element "" *vcard-namespace*)
+               element)))))
