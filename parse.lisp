@@ -1,7 +1,8 @@
 
 (cl:defpackage :soiree-parse
   (:use :common-lisp :parser-combinators :soiree)
-  (:export #:*default-namespace*
+  (:export #:*strict-parsing*
+           #:*default-namespace*
 
            #:make-text-node
 
@@ -43,10 +44,12 @@
 
 (defparameter *default-namespace* nil)
 
+(defparameter *strict-parsing* t)
+
 ;;; STP helper functions
 (defun make-text-node (text &optional (name "text"))
   (stp:append-child
-   (stp:make-element "text" *default-namespace*)
+   (stp:make-element name *default-namespace*)
    (stp:make-text text)))
 
 ;;; functions for wrapping stp elements inside fset sets
