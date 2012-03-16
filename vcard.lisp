@@ -64,7 +64,6 @@
 
 ;;; FIXME LANG is broken
 (defun lang? () (value-text-node? "LANG" "lang"))
-(defun logo? () (uri-text-node? "LOGO" "logo"))
 
 (defun member? () (value-text-node? "MEMBER" "member"))
 (defun nickname? () (value-text-node? "NICKNAME" "nickname"))
@@ -98,12 +97,27 @@
      (let ((geo-node (make-fset-element "geo" *vcard-namespace*))
            (param-element (extract-parameters
                            params
-                           (list #'param-language #'param-altid #'param-pids
-                                 #'param-pref #'param-types))))
+                           (list #'param-altid #'param-pids #'param-pref
+                                 #'param-types #'param-mediatype))))
        (add-fset-element-child
         (if (plusp (stp:number-of-children param-element))
             (add-fset-element-child geo-node param-element)
             geo-node)
+        (make-fset-text-node "uri" value))))))
+
+(defun logo? ()
+  (named-seq?
+   (<- result (content-line? "LOGO"))
+   (destructuring-bind (group name params value) result
+     (let ((logo-node (make-fset-element "logo" *vcard-namespace*))
+           (param-element (extract-parameters
+                           params
+                           (list #'param-language #'param-altid #'param-pids
+                                 #'param-pref #'param-types #'param-mediatype))))
+       (add-fset-element-child
+        (if (plusp (stp:number-of-children param-element))
+            (add-fset-element-child logo-node param-element)
+            logo-node)
         (make-fset-text-node "uri" value))))))
 
 (defun gender? () (value-text-node? "GENDER" "gender"))
@@ -180,6 +194,12 @@
              (caadar (keep "pref" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "pref" *vcard-namespace*)
                       (make-text-node pref "integer"))))
+
+(defun param-mediatype (params)
+  (when-let (mediatype
+             (caadar (keep "mediatype" params :test #'string-equal :key #'car)))
+    (stp:append-child (stp:make-element "mediatype" *vcard-namespace*)
+                      (make-text-node mediatype "text"))))
 
 (defun param-types (params)
   (when-let (types
