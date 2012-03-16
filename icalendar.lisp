@@ -43,22 +43,22 @@
     (make-cal-address-node (string-downcase name) value)))
 
 (defun attendee (result) (cal-address-node result))
-(defun class (result) (make-element-with-text* result))
-(defun created (result) (make-element-with-text* result))
-(defun description (result) (make-element-with-text* result))
-(defun last-mod (result) (make-element-with-text* result))
-(defun location (result) (make-element-with-text* result))
+(defun class (result) (text-content result))
+(defun created (result) (text-content result))
+(defun description (result) (text-content result))
+(defun last-mod (result) (text-content result))
+(defun location (result) (text-content result))
 
 (defun organizer (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group params))
     (make-cal-address-node name value)))
 
-(defun priority (result) (make-element-with-text* result))
-(defun seq (result) (make-element-with-text* result))
-(defun status (result) (make-element-with-text* result))
-(defun transp (result) (make-element-with-text* result))
-(defun recurid (result) (make-element-with-text* result))
+(defun priority (result) (text-content result))
+(defun seq (result) (text-content result))
+(defun status (result) (text-content result))
+(defun transp (result) (text-content result))
+(defun recurid (result) (text-content result))
 
 (defun vevent? ()
   (named-seq?
@@ -134,8 +134,8 @@
            (vfreebusy?)
            (vtimezone?)))
 
-(defun calscale (result) (make-element-with-text* result))
-(defun method (result) (make-element-with-text* result))
+(defun calscale (result) (text-content result))
+(defun method (result) (text-content result))
 
 (defun calprop? ()
   (content-line?))
@@ -170,10 +170,10 @@
        (stp:make-element "properties" *ical-namespace*)
        (stp:append-child
         (stp:make-element "version" *ical-namespace*)
-        (make-element-with-text "text" "2.0")))
+        (make-text-nodes "text" "2.0")))
       (stp:append-child
        (stp:make-element "prodid" *ical-namespace*)
-       (make-element-with-text "text" "bar"))))
+       (make-text-nodes "text" "bar"))))
     (reduce (lambda (element x)
               (if (and x (not (consp x)))
                   (stp:append-child element x)

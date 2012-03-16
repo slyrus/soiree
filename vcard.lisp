@@ -26,28 +26,28 @@
   (when-let (language
              (caadar (keep "language" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "language" *vcard-namespace*)
-                      (make-element-with-text "language-tag" language))))
+                      (make-text-nodes "language-tag" language))))
 
 ;; 5.2 pref
 (defun param-pref (params)
   (when-let (pref
              (caadar (keep "pref" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "pref" *vcard-namespace*)
-                      (make-element-with-text "integer" pref))))
+                      (make-text-nodes "integer" pref))))
 
 ;; Note that there is no section 5.3 in the spec!
 ;; 5.4 altid
 (defun param-altid (params)
   (when-let (altid (caadar (keep "altid" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "altid" *vcard-namespace*)
-                      (make-element-with-text "text" altid))))
+                      (make-text-nodes "text" altid))))
 ;; 5.5 pid
 (defun param-pid (params)
   (when-let (pids
              (mapcan #'second (keep "pid" params :test #'string-equal :key #'car)))
     (reduce (lambda (parent pid)
               (stp:append-child parent
-                                (make-element-with-text "text" pid)))
+                                (make-text-nodes "text" pid)))
             pids :initial-value (stp:make-element "pid" *vcard-namespace*))))
 
 ;; 5.6 type
@@ -56,7 +56,7 @@
              (mapcan #'second (keep "type" params :test #'string-equal :key #'car)))
     (reduce (lambda (parent type)
               (stp:append-child parent
-                                (make-element-with-text "text" type)))
+                                (make-text-nodes "text" type)))
             types :initial-value (stp:make-element "type" *vcard-namespace*))))
 
 ;; 5.7 mediatype
@@ -64,7 +64,7 @@
   (when-let (mediatype
              (caadar (keep "mediatype" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "mediatype" *vcard-namespace*)
-                      (make-element-with-text "text" mediatype))))
+                      (make-text-nodes "text" mediatype))))
 
 ;; 5.8 calscale
 (defparameter *calscales* '("gregorian"))
@@ -76,7 +76,7 @@
       (unless (cl:member calscale *calscales* :test #'string-equal)
         (error "Unknown calscale: ~A" calscale)))
     (stp:append-child (stp:make-element "calscale" *vcard-namespace*)
-                      (make-element-with-text "text" calscale))))
+                      (make-text-nodes "text" calscale))))
 
 ;; 5.9 sort-as TBD
 ;; 5.10 geo TBD
@@ -107,10 +107,10 @@
        (if (plusp (stp:number-of-children param-element))
            (stp:append-child source-node param-element)
            source-node)
-       (make-element-with-text "uri" value)))))
+       (make-text-nodes "uri" value)))))
 
 ;; 6.1.4 kind
-(defun kind (result) (make-element-with-text* result))
+(defun kind (result) (text-content result))
 
 ;; 6.2.1 fn
 (defun fn (result)
@@ -125,7 +125,7 @@
        (if (plusp (stp:number-of-children param-element))
            (stp:append-child fn-node param-element)
            fn-node)
-       (make-element-with-text "text" value)))))
+       (make-text-nodes "text" value)))))
 
 ;; 6.2.2 n
 (defun n (result)
@@ -162,7 +162,7 @@
                                 #'param-pref #'param-type))))
       (reduce #'stp:append-child
               (mapcar (lambda (name)
-                        (make-element-with-text "text" name))
+                        (make-text-nodes "text" name))
                       (split-string value))
               :initial-value (if (plusp (stp:number-of-children param-element))
                                  (stp:append-child nickname-node param-element)
@@ -181,7 +181,7 @@
        (if (plusp (stp:number-of-children param-element))
            (stp:append-child photo-node param-element)
            photo-node)
-       (make-element-with-text "uri" value)))))
+       (make-text-nodes "uri" value)))))
 
 ;; 6.2.5 bday
 ;; FIXME: we should support the various data elements, instead of just text
@@ -196,7 +196,7 @@
        (if (plusp (stp:number-of-children param-element))
            (stp:append-child bday-node param-element)
            bday-node)
-       (make-element-with-text "text" value)))))
+       (make-text-nodes "text" value)))))
 
 ;; 6.2.6 anniversary
 ;; FIXME: we should support the various data elements, instead of just text
@@ -211,10 +211,10 @@
        (if (plusp (stp:number-of-children param-element))
            (stp:append-child anniversary-node param-element)
            anniversary-node)
-       (make-element-with-text "text" value)))))
+       (make-text-nodes "text" value)))))
 
 ;; 6.2.7 gender
-(defun gender (result) (make-element-with-text* result))
+(defun gender (result) (text-content result))
 
 (defun adr (result)
   (destructuring-bind (group name params value) result
@@ -239,30 +239,30 @@
                            (split-string country)))
               :initial-value (stp:make-element "adr" *vcard-namespace*)))))
 
-(defun caladruri (result) (make-element-with-text* result))
-(defun caluri (result) (make-element-with-text* result))
+(defun caladruri (result) (text-content result))
+(defun caluri (result) (text-content result))
 
 ;; fix me -- categories needs to accept multiple values
-(defun categories (result) (make-element-with-text* result))
+(defun categories (result) (text-content result))
 
-(defun clientpidmap (result) (make-element-with-text* result))
-(defun email (result) (make-element-with-text* result))
+(defun clientpidmap (result) (text-content result))
+(defun email (result) (text-content result))
 
-(defun fburl (result) (make-element-with-uri* result))
+(defun fburl (result) (uri-content result))
 
-(defun impp (result) (make-element-with-uri* result))
-(defun key (result) (make-element-with-uri* result))
+(defun impp (result) (uri-content result))
+(defun key (result) (uri-content result))
 
 ;;; FIXME LANG is broken
-(defun lang (result) (make-element-with-text* result))
+(defun lang (result) (text-content result))
 
-(defun member (result) (make-element-with-text* result))
+(defun member (result) (text-content result))
 
-(defun note (result) (make-element-with-text* result))
-(defun org (result) (make-element-with-text* result))
+(defun note (result) (text-content result))
+(defun org (result) (text-content result))
 
-(defun related (result) (make-element-with-text* result))
-(defun rev (result) (make-element-with-text* result))
+(defun related (result) (text-content result))
+(defun rev (result) (text-content result))
 
 (defun role (result)
   (destructuring-bind (group name params value) result
@@ -276,7 +276,7 @@
        (if (plusp (stp:number-of-children param-element))
            (stp:append-child role-node param-element)
            role-node)
-       (make-element-with-text "text" value)))))
+       (make-text-nodes "text" value)))))
 
 (defun geo (result)
   (destructuring-bind (group name params value) result
@@ -290,7 +290,7 @@
        (if (plusp (stp:number-of-children param-element))
            (stp:append-child geo-node param-element)
            geo-node)
-       (make-element-with-text "uri" value)))))
+       (make-text-nodes "uri" value)))))
 
 (defun logo (result)
   (destructuring-bind (group name params value) result
@@ -304,9 +304,9 @@
        (if (plusp (stp:number-of-children param-element))
            (stp:append-child logo-node param-element)
            logo-node)
-       (make-element-with-text "uri" value)))))
+       (make-text-nodes "uri" value)))))
 
-(defun sound (result) (make-element-with-text* result))
+(defun sound (result) (text-content result))
 
 (defun make-pref-element (&optional (value 1))
   (stp:append-child
@@ -334,7 +334,7 @@
             (reduce
              (lambda (parent child)
                (stp:append-child parent
-                                 (make-element-with-text "text" (string-downcase child))))
+                                 (make-text-nodes "text" (string-downcase child))))
              tel-types
              :initial-value type-element)
             (stp:append-child param-element type-element))))
@@ -358,9 +358,9 @@
        (if (plusp (stp:number-of-children param-element))
            (stp:append-child title-node param-element)
            title-node)
-       (make-element-with-text "text" value)))))
+       (make-text-nodes "text" value)))))
 
-(defun tz (result) (make-element-with-text* result))
+(defun tz (result) (text-content result))
 
 (defun version (result) 
   (destructuring-bind (group name params value) result

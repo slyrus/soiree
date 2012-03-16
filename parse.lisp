@@ -4,13 +4,10 @@
   (:export #:*strict-parsing*
            #:*default-namespace*
 
-           #:make-text-node
            #:make-text-nodes
 
-           #:make-element-with-text
-
-           #:make-element-with-text*
-           #:make-element-with-uri*
+           #:text-content
+           #:uri-content
 
            #:crlf?
            #:qsafe-char?
@@ -37,12 +34,6 @@
 (defparameter *default-namespace* nil)
 
 (defparameter *strict-parsing* t)
-
-;;; STP helper functions
-(defun make-element-with-text (element-name text)
-  (stp:append-child
-   (stp:make-element element-name *default-namespace*)
-   (stp:make-text text)))
 
 (defun make-text-nodes (element-tag &rest strings)
   (reduce (lambda (element x)
@@ -175,7 +166,7 @@
 
 (defun text-element (tag string))
 
-(defun make-element-with-text* (result)
+(defun text-content (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group params))
     (reduce (lambda (element x)
@@ -187,7 +178,7 @@
             (split-string value)
             :initial-value (stp:make-element (string-downcase name) *default-namespace*))))
 
-(defun make-element-with-uri* (result)
+(defun uri-content (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group params))
     (stp:append-child
@@ -196,13 +187,13 @@
       (stp:make-element "uri" *default-namespace*)
       (stp:make-text value)))))
 
-(defun geo (result) (make-element-with-uri* result))
+(defun geo (result) (uri-content result))
 
-(defun uid (result) (make-element-with-uri* result))
-(defun url (result) (make-element-with-uri* result))
+(defun uid (result) (uri-content result))
+(defun url (result) (uri-content result))
 
 (defun version (result) nil)
-(defun prodid (result) (make-element-with-text* result))
+(defun prodid (result) (text-content result))
 
 (defun long-line-extension? ()
   (named-seq?
