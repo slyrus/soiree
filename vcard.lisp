@@ -206,7 +206,21 @@
         (make-fset-text-node "text" value))))))
 
 ;; 6.2.6 anniversary
-(defun anniversary? () (value-text-node? "ANNIVERSARY" "anniversary"))
+;; FIXME: we should support the various data elements, instead of just text
+(defun anniversary? ()
+  (named-seq?
+   (<- result (content-line? "ANNIVERSARY"))
+   (destructuring-bind (group name params value) result
+     (declare (ignore group name))
+     (let ((anniversary-node (make-fset-element "anniversary" *vcard-namespace*))
+           (param-element (extract-parameters
+                           params
+                           (list #'param-altid #'param-calscale))))
+       (add-fset-element-child
+        (if (plusp (stp:number-of-children param-element))
+            (add-fset-element-child anniversary-node param-element)
+            anniversary-node)
+        (make-fset-text-node "text" value))))))
 
 ;; 6.2.7 gender
 (defun gender? () (value-text-node? "GENDER" "gender"))
