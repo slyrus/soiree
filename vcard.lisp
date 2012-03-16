@@ -127,11 +127,8 @@
 
 (defun fburl? () (uri-text-node? "FBURL" "fburl"))
 
-(defun fn? () (value-text-node? "FN" "fn"))
 (defun impp? () (uri-text-node? "IMPP" "impp"))
 (defun key? () (uri-text-node? "KEY" "key"))
-
-(defun kind? () (value-text-node? "KIND" "kind"))
 
 ;;; FIXME LANG is broken
 (defun lang? () (value-text-node? "LANG" "lang"))
@@ -161,6 +158,51 @@
             (add-fset-element-child source-node param-element)
             source-node)
         (make-fset-text-node "uri" value))))))
+
+;; 6.1.4 kind
+(defun kind? () (value-text-node? "KIND" "kind"))
+
+;; 6.2.1 fn
+(defun fn? ()
+  (named-seq?
+   (<- result (content-line? "FN"))
+   (destructuring-bind (group name params value) result
+     (let ((fn-node (make-fset-element "fn" *vcard-namespace*))
+           (param-element (extract-parameters
+                           params
+                           (list #'param-language #'param-altid #'param-pid
+                                 #'param-pref #'param-type))))
+       (add-fset-element-child
+        (if (plusp (stp:number-of-children param-element))
+            (add-fset-element-child fn-node param-element)
+            fn-node)
+        (make-fset-text-node "text" value))))))
+
+;; 6.2.2 n
+(defun n? ()
+  (named-seq?
+   (<- result (content-line? "N"))
+   (destructuring-bind (group name params value)
+       result
+     (destructuring-bind (family-names
+                          given-names
+                          additional-names
+                          honorific-prefixes
+                          honorific-suffixes)
+         (split-string value :delimiter #\;)
+       (reduce (lambda (parent child)
+                 (add-fset-element-child parent child))
+               (list (apply #'make-fset-text-nodes "surname"
+                            (split-string family-names))
+                     (apply #'make-fset-text-nodes "given"
+                            (split-string given-names))
+                     (apply #'make-fset-text-nodes "additional"
+                            (split-string additional-names))
+                     (apply #'make-fset-text-nodes "prefix"
+                            (split-string honorific-prefixes))
+                     (apply #'make-fset-text-nodes "suffix"
+                            (split-string honorific-suffixes)))
+               :initial-value (make-fset-element "n" *vcard-namespace*))))))
 
 ;; 6.2.5 bday
 ;; FIXME: we should support the various data elements, instead of just text
@@ -281,31 +323,6 @@
         (make-fset-text-node "text" value))))))
 
 (defun tz? () (value-text-node? "TZ" "tz"))
-
-(defun n? ()
-  (named-seq?
-   (<- result (content-line? "N"))
-   (destructuring-bind (group name params value)
-       result
-     (destructuring-bind (family-names
-                          given-names
-                          additional-names
-                          honorific-prefixes
-                          honorific-suffixes)
-         (split-string value :delimiter #\;)
-       (reduce (lambda (parent child)
-                 (add-fset-element-child parent child))
-               (list (apply #'make-fset-text-nodes "surname"
-                            (split-string family-names))
-                     (apply #'make-fset-text-nodes "given"
-                            (split-string given-names))
-                     (apply #'make-fset-text-nodes "additional"
-                            (split-string additional-names))
-                     (apply #'make-fset-text-nodes "prefix"
-                            (split-string honorific-prefixes))
-                     (apply #'make-fset-text-nodes "suffix"
-                            (split-string honorific-suffixes)))
-               :initial-value (make-fset-element "n" *vcard-namespace*))))))
 
 (defun version? () 
   (named-seq?
