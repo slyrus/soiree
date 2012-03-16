@@ -48,10 +48,16 @@
             pids :initial-value (stp:make-element "pid" *vcard-namespace*))))
 
 ;; 5.6 type
+(defparameter *types* '("work" "home"))
+
 (defun param-type (params)
   (when-let (types
              (mapcan #'second (keep "type" params :test #'string-equal :key #'car)))
-    (reduce (lambda (parent type) (stp:append-child parent (make-text-node type)))
+    (reduce (lambda (parent type)
+              (when *strict-parsing*
+                (unless (member type *types* :test #'string-equal)
+                  (error "Unknown type: ~A" type)))
+              (stp:append-child parent (make-text-node type)))
             types :initial-value (stp:make-element "type" *vcard-namespace*))))
 
 ;; 5.7 mediatype
