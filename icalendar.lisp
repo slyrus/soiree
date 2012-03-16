@@ -10,7 +10,7 @@
 (defvar *ical-rng-pathname*
   (merge-pathnames #p"icalendar-2.0.rnc" soiree-config:*base-directory*))
 
-(defvar *ical-rng-schema* (cxml-rng:parse-compact *icalendar-rng-pathname*))
+(defvar *ical-rng-schema* (cxml-rng:parse-compact *ical-rng-pathname*))
 
 (defun make-fset-date-time-node (element-tag string)
   (add-fset-element-child
@@ -164,6 +164,7 @@
    (add-fset-element-child
     (add-fset-element-child
      (make-fset-element "vcalendar" *ical-namespace*)
+     ;;; FIXME! We're not really parsing the properties, just cheating here!
      (add-fset-element-child
       (add-fset-element-child
        (make-fset-element "properties" *ical-namespace*)
