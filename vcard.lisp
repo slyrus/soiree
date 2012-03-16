@@ -18,6 +18,7 @@
 
 (defparameter *current-vcard-version* nil)
 
+;;;
 ;;; Section 5: Parameters
 
 ;; 5.1 language
@@ -79,6 +80,9 @@
     (stp:append-child (stp:make-element "calscale" *vcard-namespace*)
                       (make-text-node calscale "text"))))
 
+;; 5.9 sort-as TBD
+;; 5.10 geo TBD
+;; 5.11 tz TBD
 
 ;; parameter utility routines
 (defun add-params (param-list params)
@@ -89,59 +93,8 @@
     (let ((param-children (add-params functions params)))
       (reduce #'stp:append-child param-children :initial-value param-element))))
 
-
-(defun adr? ()
-  (named-seq?
-   (<- result (content-line? "ADR"))
-   (destructuring-bind (group name params value)
-       result
-     (destructuring-bind (pobox ext street locality region code country)
-         (split-string value :delimiter #\;)
-       (reduce (lambda (parent child)
-                 (add-fset-element-child parent child))
-               (list (apply #'make-fset-text-nodes "pobox"
-                            (split-string pobox))
-                     (apply #'make-fset-text-nodes "ext"
-                            (split-string ext))
-                     (apply #'make-fset-text-nodes "street"
-                            (split-string street))
-                     (apply #'make-fset-text-nodes "locality"
-                            (split-string locality))
-                     (apply #'make-fset-text-nodes "region"
-                            (split-string region))
-                     (apply #'make-fset-text-nodes "code"
-                            (split-string code))
-                     (apply #'make-fset-text-nodes "country"
-                            (split-string country)))
-               :initial-value (make-fset-element "adr" *vcard-namespace*))))))
-
-(defun anniversary? () (value-text-node? "ANNIVERSARY" "anniversary"))
-(defun caladruri? () (value-text-node? "CALADRURI" "caladruri"))
-(defun caluri? () (value-text-node? "CALURI" "caluri"))
-
-;; fix me -- categories needs to accept multiple values
-(defun categories? () (value-text-node? "CATEGORIES" "categories"))
-
-(defun clientpidmap? () (value-text-node? "CLIENTPIDMAP" "clientpidmap"))
-(defun email? () (value-text-node? "EMAIL" "email"))
-
-(defun fburl? () (uri-text-node? "FBURL" "fburl"))
-
-(defun impp? () (uri-text-node? "IMPP" "impp"))
-(defun key? () (uri-text-node? "KEY" "key"))
-
-;;; FIXME LANG is broken
-(defun lang? () (value-text-node? "LANG" "lang"))
-
-(defun member? () (value-text-node? "MEMBER" "member"))
-(defun nickname? () (value-text-node? "NICKNAME" "nickname"))
-
-(defun note? () (value-text-node? "NOTE" "note"))
-(defun org? () (value-text-node? "ORG" "org"))
-(defun photo? () (uri-text-node? "PHOTO" "photo"))
-
-(defun related? () (value-text-node? "RELATED" "related"))
-(defun rev? () (value-text-node? "REV" "rev"))
+;;;
+;;; Section 6: Properties
 
 ;; 6.1.3 source
 (defun source? ()
@@ -204,6 +157,12 @@
                             (split-string honorific-suffixes)))
                :initial-value (make-fset-element "n" *vcard-namespace*))))))
 
+;; 6.2.3 nickname
+(defun nickname? () (value-text-node? "NICKNAME" "nickname"))
+
+;; 6.2.4 photo
+(defun photo? () (uri-text-node? "PHOTO" "photo"))
+
 ;; 6.2.5 bday
 ;; FIXME: we should support the various data elements, instead of just text
 (defun bday? ()
@@ -219,6 +178,62 @@
             (add-fset-element-child bday-node param-element)
             bday-node)
         (make-fset-text-node "text" value))))))
+
+;; 6.2.6 anniversary
+(defun anniversary? () (value-text-node? "ANNIVERSARY" "anniversary"))
+
+;; 6.2.7 gender
+(defun gender? () (value-text-node? "GENDER" "gender"))
+
+(defun adr? ()
+  (named-seq?
+   (<- result (content-line? "ADR"))
+   (destructuring-bind (group name params value)
+       result
+     (destructuring-bind (pobox ext street locality region code country)
+         (split-string value :delimiter #\;)
+       (reduce (lambda (parent child)
+                 (add-fset-element-child parent child))
+               (list (apply #'make-fset-text-nodes "pobox"
+                            (split-string pobox))
+                     (apply #'make-fset-text-nodes "ext"
+                            (split-string ext))
+                     (apply #'make-fset-text-nodes "street"
+                            (split-string street))
+                     (apply #'make-fset-text-nodes "locality"
+                            (split-string locality))
+                     (apply #'make-fset-text-nodes "region"
+                            (split-string region))
+                     (apply #'make-fset-text-nodes "code"
+                            (split-string code))
+                     (apply #'make-fset-text-nodes "country"
+                            (split-string country)))
+               :initial-value (make-fset-element "adr" *vcard-namespace*))))))
+
+(defun caladruri? () (value-text-node? "CALADRURI" "caladruri"))
+(defun caluri? () (value-text-node? "CALURI" "caluri"))
+
+;; fix me -- categories needs to accept multiple values
+(defun categories? () (value-text-node? "CATEGORIES" "categories"))
+
+(defun clientpidmap? () (value-text-node? "CLIENTPIDMAP" "clientpidmap"))
+(defun email? () (value-text-node? "EMAIL" "email"))
+
+(defun fburl? () (uri-text-node? "FBURL" "fburl"))
+
+(defun impp? () (uri-text-node? "IMPP" "impp"))
+(defun key? () (uri-text-node? "KEY" "key"))
+
+;;; FIXME LANG is broken
+(defun lang? () (value-text-node? "LANG" "lang"))
+
+(defun member? () (value-text-node? "MEMBER" "member"))
+
+(defun note? () (value-text-node? "NOTE" "note"))
+(defun org? () (value-text-node? "ORG" "org"))
+
+(defun related? () (value-text-node? "RELATED" "related"))
+(defun rev? () (value-text-node? "REV" "rev"))
 
 (defun role? ()
   (named-seq?
@@ -265,7 +280,6 @@
             logo-node)
         (make-fset-text-node "uri" value))))))
 
-(defun gender? () (value-text-node? "GENDER" "gender"))
 (defun sound? () (value-text-node? "SOUND" "sound"))
 
 (defun make-pref-element (&optional (value 1))
