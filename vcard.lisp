@@ -1,7 +1,7 @@
 
 (cl:defpackage :soiree-vcard
   (:use :common-lisp :parser-combinators :soiree :soiree-parse)
-  (:shadow #:version? #:geo? #:member #:content-line?))
+  (:shadow #:version #:geo #:member))
 
 (cl:in-package :soiree-vcard)
 
@@ -17,16 +17,6 @@
 (defvar *vcard-rng-schema* (cxml-rng:parse-compact *vcard-rng-pathname*))
 
 (defparameter *current-vcard-version* nil)
-
-(defun value-text-node (result)
-  (destructuring-bind (group name params value) result
-    (declare (ignore group params))
-    (apply #'make-fset-value-text-nodes (string-downcase name) (split-string value))))
-
-(defun uri-text-node (result)
-  (destructuring-bind (group name params value) result
-    (declare (ignore group params))
-    (make-fset-uri-text-node (string-downcase name) value)))
 
 ;;;
 ;;; Section 5: Parameters
@@ -269,11 +259,6 @@
 (defun related (result) (value-text-node result))
 (defun rev (result) (value-text-node result))
 
-(defun uid (result) (uri-text-node result))
-(defun url (result) (uri-text-node result))
-
-(defun prodid (result) (value-text-node result))
-
 (defun role (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))     
@@ -398,34 +383,6 @@
        (declare (ignore group params value))
     (let ((fn (gethash (string-upcase name) *content-dispatch*)))
       (when fn (funcall fn result)))))
-
-(defun name-not-end? ()
-  (let ((name? (name?)))
-    (mdo
-      (<- name name?)
-      (if (string-equal name "END")
-          (zero)
-          (result name)))))
-
-(defun content-line? (&optional name)
-  ;; [group "."] name *(";" param) ":" value CRLF
-  (named-seq?
-   (<- group (opt? (hook?
-                    #'first
-                    (seq-list? (group?) "."))))
-   (<- name (if name
-                name
-                (name-not-end?)))
-   (<- params (many? (named-seq?
-                      ";"
-                      (<- param (param?))
-                      param)))
-   ":"
-   (<- value (soiree-parse::value?))
-   (<- long-lines (many? (soiree-parse::long-line-extension?)))
-   (seq-list? #\Return #\Newline)
-   (when name
-     (list group name params (apply #'concatenate 'string value long-lines)))))
 
 (defun vcard? ()
   (named-seq?

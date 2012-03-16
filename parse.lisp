@@ -17,6 +17,9 @@
            #:make-fset-uri-text-node
            #:make-fset-value-text-nodes
 
+           #:value-text-node
+           #:uri-text-node
+
            #:crlf?
            #:qsafe-char?
            #:safe-char?
@@ -28,14 +31,11 @@
 
            #:name?
 
-           #:value-text-node?
-           #:uri-text-node?
-
-           #:geo?
-           #:uid?
-           #:url?
-           #:version?
-           #:prodid?
+           #:geo
+           #:uid
+           #:url
+           #:version
+           #:prodid
            
            #:x-name-line?
            #:content-line?))
@@ -235,27 +235,23 @@
    (<- name (between? (alphanum-or-dash?) 1 nil 'string))
    (concatenate 'string (string x) "-" name)))
 
-(defun value-text-node? (field-name element-tag)
-  (named-seq?
-   (<- result (content-line? field-name))
-   (destructuring-bind (group name params value)
-       result
-     (apply #'make-fset-value-text-nodes element-tag (split-string value)))))
+(defun value-text-node (result)
+  (destructuring-bind (group name params value) result
+    (declare (ignore group params))
+    (apply #'make-fset-value-text-nodes (string-downcase name) (split-string value))))
 
-(defun uri-text-node? (field-name element-tag)
-  (named-seq?
-   (<- result (content-line? field-name))
-   (destructuring-bind (group name params value)
-       result
-     (make-fset-uri-text-node element-tag value))))
+(defun uri-text-node (result)
+  (destructuring-bind (group name params value) result
+    (declare (ignore group params))
+    (make-fset-uri-text-node (string-downcase name) value)))
 
-(defun geo? () (uri-text-node? "GEO" "geo"))
+(defun geo (result) (uri-text-node result))
 
-(defun uid? () (uri-text-node? "UID" "uid"))
-(defun url? () (uri-text-node? "URL" "url"))
+(defun uid (result) (uri-text-node result))
+(defun url (result) (uri-text-node result))
 
-(defun version? () (chook? nil (content-line? "VERSION")))
-(defun prodid? () (value-text-node? "PRODID" "prodid"))
+(defun version (result) nil)
+(defun prodid (result) (value-text-node result))
 
 (defun long-line-extension? ()
   (named-seq?
@@ -283,20 +279,30 @@
    (when name
      (list group name params (apply #'concatenate 'string value long-lines)))))
 
+(defun name-not-end? ()
+  (let ((name? (name?)))
+    (mdo
+      (<- name name?)
+      (if (string-equal name "END")
+          (zero)
+          (result name)))))
+
 (defun content-line? (&optional name)
   ;; [group "."] name *(";" param) ":" value CRLF
   (named-seq?
    (<- group (opt? (hook?
                     #'first
                     (seq-list? (group?) "."))))
-   (<- name (if name name (name?)))
+   (<- name (if name
+                name
+                (name-not-end?)))
    (<- params (many? (named-seq?
                       ";"
                       (<- param (param?))
                       param)))
    ":"
-   (<- value (value?))
-   (<- long-lines (many? (long-line-extension?)))
+   (<- value (soiree-parse::value?))
+   (<- long-lines (many? (soiree-parse::long-line-extension?)))
    (seq-list? #\Return #\Newline)
    (when name
      (list group name params (apply #'concatenate 'string value long-lines)))))
