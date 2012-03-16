@@ -18,6 +18,58 @@
 
 (defparameter *current-vcard-version* nil)
 
+;;; Section 5: Parameters
+
+;; 5.1 language
+(defun param-language (params)
+  (when-let (language
+             (caadar (keep "language" params :test #'string-equal :key #'car)))
+    (stp:append-child (stp:make-element "language" *vcard-namespace*)
+                      (make-text-node language "language-tag"))))
+
+;; 5.2 pref
+(defun param-pref (params)
+  (when-let (pref
+             (caadar (keep "pref" params :test #'string-equal :key #'car)))
+    (stp:append-child (stp:make-element "pref" *vcard-namespace*)
+                      (make-text-node pref "integer"))))
+
+;; Note that there is no section 5.3 in the spec!
+;; 5.4 altid
+(defun param-altid (params)
+  (when-let (altid (caadar (keep "altid" params :test #'string-equal :key #'car)))
+    (stp:append-child (stp:make-element "altid" *vcard-namespace*)
+                      (make-text-node altid))))
+;; 5.5 pid
+(defun param-pid (params)
+  (when-let (pids
+             (mapcan #'second (keep "pid" params :test #'string-equal :key #'car)))
+    (reduce (lambda (parent pid) (stp:append-child parent (make-text-node pid)))
+            pids :initial-value (stp:make-element "pid" *vcard-namespace*))))
+
+;; 5.6 type
+(defun param-type (params)
+  (when-let (types
+             (mapcan #'second (keep "type" params :test #'string-equal :key #'car)))
+    (reduce (lambda (parent type) (stp:append-child parent (make-text-node type)))
+            types :initial-value (stp:make-element "type" *vcard-namespace*))))
+
+;; 5.7 mediatype
+(defun param-mediatype (params)
+  (when-let (mediatype
+             (caadar (keep "mediatype" params :test #'string-equal :key #'car)))
+    (stp:append-child (stp:make-element "mediatype" *vcard-namespace*)
+                      (make-text-node mediatype "text"))))
+
+(defun add-params (param-list params)
+  (remove nil (mapcar (lambda (x) (funcall x params)) param-list) :test 'eq))
+
+(defun extract-parameters (params functions)
+  (let ((param-element (stp:make-element "parameters" *vcard-namespace*)))
+    (let ((param-children (add-params functions params)))
+      (reduce #'stp:append-child param-children :initial-value param-element))))
+
+
 (defun adr? ()
   (named-seq?
    (<- result (content-line? "ADR"))
@@ -82,8 +134,8 @@
      (let ((role-node (make-fset-element "role" *vcard-namespace*))
            (param-element (extract-parameters
                            params
-                           (list #'param-language #'param-altid #'param-pids
-                                 #'param-pref #'param-types))))
+                           (list #'param-language #'param-altid #'param-pid
+                                 #'param-pref #'param-type))))
        (add-fset-element-child
         (if (plusp (stp:number-of-children param-element))
             (add-fset-element-child role-node param-element)
@@ -97,8 +149,8 @@
      (let ((geo-node (make-fset-element "geo" *vcard-namespace*))
            (param-element (extract-parameters
                            params
-                           (list #'param-altid #'param-pids #'param-pref
-                                 #'param-types #'param-mediatype))))
+                           (list #'param-altid #'param-pid #'param-pref
+                                 #'param-type #'param-mediatype))))
        (add-fset-element-child
         (if (plusp (stp:number-of-children param-element))
             (add-fset-element-child geo-node param-element)
@@ -112,8 +164,8 @@
      (let ((logo-node (make-fset-element "logo" *vcard-namespace*))
            (param-element (extract-parameters
                            params
-                           (list #'param-language #'param-altid #'param-pids
-                                 #'param-pref #'param-types #'param-mediatype))))
+                           (list #'param-language #'param-altid #'param-pid
+                                 #'param-pref #'param-type #'param-mediatype))))
        (add-fset-element-child
         (if (plusp (stp:number-of-children param-element))
             (add-fset-element-child logo-node param-element)
@@ -164,49 +216,6 @@
          (make-fset-element "text" *vcard-namespace*)
          (make-fset-text value)))))))
 
-(defun add-params (param-list params)
-  (remove nil (mapcar (lambda (x) (funcall x params)) param-list) :test 'eq))
-
-(defun extract-parameters (params functions)
-  (let ((param-element (stp:make-element "parameters" *vcard-namespace*)))
-    (let ((param-children (add-params functions params)))
-      (reduce #'stp:append-child param-children :initial-value param-element))))
-
-(defun param-altid (params)
-  (when-let (altid (caadar (keep "altid" params :test #'string-equal :key #'car)))
-    (stp:append-child (stp:make-element "altid" *vcard-namespace*)
-                      (make-text-node altid))))
-
-(defun param-language (params)
-  (when-let (language
-             (caadar (keep "language" params :test #'string-equal :key #'car)))
-    (stp:append-child (stp:make-element "language" *vcard-namespace*)
-                      (make-text-node language "language-tag"))))
-
-(defun param-pids (params)
-  (when-let (pids
-             (mapcan #'second (keep "pid" params :test #'string-equal :key #'car)))
-    (reduce (lambda (parent pid) (stp:append-child parent (make-text-node pid)))
-            pids :initial-value (stp:make-element "pid" *vcard-namespace*))))
-
-(defun param-pref (params)
-  (when-let (pref
-             (caadar (keep "pref" params :test #'string-equal :key #'car)))
-    (stp:append-child (stp:make-element "pref" *vcard-namespace*)
-                      (make-text-node pref "integer"))))
-
-(defun param-mediatype (params)
-  (when-let (mediatype
-             (caadar (keep "mediatype" params :test #'string-equal :key #'car)))
-    (stp:append-child (stp:make-element "mediatype" *vcard-namespace*)
-                      (make-text-node mediatype "text"))))
-
-(defun param-types (params)
-  (when-let (types
-             (mapcan #'second (keep "type" params :test #'string-equal :key #'car)))
-    (reduce (lambda (parent type) (stp:append-child parent (make-text-node type)))
-            types :initial-value (stp:make-element "type" *vcard-namespace*))))
-
 (defun title? ()
   (named-seq?
    (<- result (content-line? "TITLE"))
@@ -214,8 +223,8 @@
      (let ((title-node (make-fset-element "title" *vcard-namespace*))
            (param-element (extract-parameters
                            params
-                           (list #'param-language #'param-altid #'param-pids
-                                 #'param-pref #'param-types))))
+                           (list #'param-language #'param-altid #'param-pid
+                                 #'param-pref #'param-type))))
        (add-fset-element-child
         (if (plusp (stp:number-of-children param-element))
             (add-fset-element-child title-node param-element)
