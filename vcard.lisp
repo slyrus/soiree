@@ -1,7 +1,7 @@
 
 (cl:defpackage :soiree-vcard
   (:use :common-lisp :parser-combinators :soiree :soiree-parse)
-  (:shadow #:version?))
+  (:shadow #:version? #:geo?))
 
 (cl:in-package :soiree-vcard)
 
@@ -90,6 +90,21 @@
             (add-fset-element-child role-node param-element)
             role-node)
         (make-fset-text-node "text" value))))))
+
+(defun geo? ()
+  (named-seq?
+   (<- result (content-line? "GEO"))
+   (destructuring-bind (group name params value) result
+     (let ((geo-node (make-fset-element "geo" *vcard-namespace*))
+           (param-element (extract-parameters
+                           params
+                           (list #'param-language #'param-altid #'param-pids
+                                 #'param-pref #'param-types))))
+       (add-fset-element-child
+        (if (plusp (stp:number-of-children param-element))
+            (add-fset-element-child geo-node param-element)
+            geo-node)
+        (make-fset-text-node "uri" value))))))
 
 (defun gender? () (value-text-node? "GENDER" "gender"))
 (defun sound? () (value-text-node? "SOUND" "sound"))
