@@ -67,6 +67,20 @@
     (stp:append-child (stp:make-element "mediatype" *vcard-namespace*)
                       (make-text-node mediatype "text"))))
 
+;; 5.8 calscale
+(defparameter *calscales* '("gregorian"))
+
+(defun param-calscale (params)
+  (when-let (calscale
+             (caadar (keep "calscale" params :test #'string-equal :key #'car)))
+    (when *strict-parsing*
+      (unless (member calscale *calscales* :test #'string-equal)
+        (error "Unknown calscale: ~A" calscale)))
+    (stp:append-child (stp:make-element "calscale" *vcard-namespace*)
+                      (make-text-node calscale "text"))))
+
+
+;; parameter utility routines
 (defun add-params (param-list params)
   (remove nil (mapcar (lambda (x) (funcall x params)) param-list) :test 'eq))
 
@@ -102,7 +116,6 @@
                :initial-value (make-fset-element "adr" *vcard-namespace*))))))
 
 (defun anniversary? () (value-text-node? "ANNIVERSARY" "anniversary"))
-(defun bday? () (value-text-node? "BDAY" "bday"))
 (defun caladruri? () (value-text-node? "CALADRURI" "caladruri"))
 (defun caluri? () (value-text-node? "CALURI" "caluri"))
 
@@ -132,6 +145,38 @@
 
 (defun related? () (value-text-node? "RELATED" "related"))
 (defun rev? () (value-text-node? "REV" "rev"))
+
+;; 6.1.3 source
+(defun source? ()
+  (named-seq?
+   (<- result (content-line? "SOURCE"))
+   (destructuring-bind (group name params value) result
+     (let ((source-node (make-fset-element "source" *vcard-namespace*))
+           (param-element (extract-parameters
+                           params
+                           (list #'param-altid #'param-pid #'param-pref
+                                 #'param-mediatype))))
+       (add-fset-element-child
+        (if (plusp (stp:number-of-children param-element))
+            (add-fset-element-child source-node param-element)
+            source-node)
+        (make-fset-text-node "uri" value))))))
+
+;; 6.2.5 bday
+;; FIXME: we should support the various data elements, instead of just text
+(defun bday? ()
+  (named-seq?
+   (<- result (content-line? "BDAY"))
+   (destructuring-bind (group name params value) result
+     (let ((bday-node (make-fset-element "bday" *vcard-namespace*))
+           (param-element (extract-parameters
+                           params
+                           (list #'param-altid #'param-calscale))))
+       (add-fset-element-child
+        (if (plusp (stp:number-of-children param-element))
+            (add-fset-element-child bday-node param-element)
+            bday-node)
+        (make-fset-text-node "text" value))))))
 
 (defun role? ()
   (named-seq?
@@ -180,8 +225,6 @@
 
 (defun gender? () (value-text-node? "GENDER" "gender"))
 (defun sound? () (value-text-node? "SOUND" "sound"))
-
-(defun source? () (value-text-node? "SOURCE" "source"))
 
 (defun make-pref-element (&optional (value 1))
   (stp:append-child
