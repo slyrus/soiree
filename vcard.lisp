@@ -49,15 +49,10 @@
             pids :initial-value (stp:make-element "pid" *vcard-namespace*))))
 
 ;; 5.6 type
-(defparameter *types* '("work" "home"))
-
 (defun param-type (params)
   (when-let (types
              (mapcan #'second (keep "type" params :test #'string-equal :key #'car)))
     (reduce (lambda (parent type)
-              (when *strict-parsing*
-                (unless (member type *types* :test #'string-equal)
-                  (error "Unknown type: ~A" type)))
               (stp:append-child parent (make-text-node type)))
             types :initial-value (stp:make-element "type" *vcard-namespace*))))
 
@@ -101,6 +96,7 @@
   (named-seq?
    (<- result (content-line? "SOURCE"))
    (destructuring-bind (group name params value) result
+     (declare (ignore group name))
      (let ((source-node (make-fset-element "source" *vcard-namespace*))
            (param-element (extract-parameters
                            params
@@ -120,6 +116,7 @@
   (named-seq?
    (<- result (content-line? "FN"))
    (destructuring-bind (group name params value) result
+     (declare (ignore group name))
      (let ((fn-node (make-fset-element "fn" *vcard-namespace*))
            (param-element (extract-parameters
                            params
@@ -135,8 +132,8 @@
 (defun n? ()
   (named-seq?
    (<- result (content-line? "N"))
-   (destructuring-bind (group name params value)
-       result
+   (destructuring-bind (group name params value) result
+     (declare (ignore group name params))
      (destructuring-bind (family-names
                           given-names
                           additional-names
@@ -158,10 +155,38 @@
                :initial-value (make-fset-element "n" *vcard-namespace*))))))
 
 ;; 6.2.3 nickname
-(defun nickname? () (value-text-node? "NICKNAME" "nickname"))
+(defun nickname? ()
+  (named-seq?
+   (<- result (content-line? "NICKNAME"))
+   (destructuring-bind (group name params value) result
+     (declare (ignore group name))
+     (let ((nickname-node (make-fset-element "nickname" *vcard-namespace*))
+           (param-element (extract-parameters
+                           params
+                           (list #'param-language #'param-altid #'param-pid
+                                 #'param-pref #'param-type))))
+       (reduce #'add-fset-element-child
+               (mapcar #'make-text-node (split-string value))
+               :initial-value (if (plusp (stp:number-of-children param-element))
+                                  (add-fset-element-child nickname-node param-element)
+                                  nickname-node))))))
 
 ;; 6.2.4 photo
-(defun photo? () (uri-text-node? "PHOTO" "photo"))
+(defun photo? ()
+  (named-seq?
+   (<- result (content-line? "PHOTO"))
+   (destructuring-bind (group name params value) result
+     (declare (ignore group name))
+     (let ((photo-node (make-fset-element "photo" *vcard-namespace*))
+           (param-element (extract-parameters
+                           params
+                           (list #'param-altid #'param-pid #'param-pref
+                                 #'param-type #'param-mediatype))))
+       (add-fset-element-child
+        (if (plusp (stp:number-of-children param-element))
+            (add-fset-element-child photo-node param-element)
+            photo-node)
+        (make-fset-text-node "uri" value))))))
 
 ;; 6.2.5 bday
 ;; FIXME: we should support the various data elements, instead of just text
@@ -169,6 +194,7 @@
   (named-seq?
    (<- result (content-line? "BDAY"))
    (destructuring-bind (group name params value) result
+     (declare (ignore group name))
      (let ((bday-node (make-fset-element "bday" *vcard-namespace*))
            (param-element (extract-parameters
                            params
@@ -188,8 +214,8 @@
 (defun adr? ()
   (named-seq?
    (<- result (content-line? "ADR"))
-   (destructuring-bind (group name params value)
-       result
+   (destructuring-bind (group name params value) result
+     (declare (ignore group name params))
      (destructuring-bind (pobox ext street locality region code country)
          (split-string value :delimiter #\;)
        (reduce (lambda (parent child)
@@ -239,6 +265,7 @@
   (named-seq?
    (<- result (content-line? "ROLE"))
    (destructuring-bind (group name params value) result
+     (declare (ignore group name))     
      (let ((role-node (make-fset-element "role" *vcard-namespace*))
            (param-element (extract-parameters
                            params
@@ -254,6 +281,7 @@
   (named-seq?
    (<- result (content-line? "GEO"))
    (destructuring-bind (group name params value) result
+     (declare (ignore group name))
      (let ((geo-node (make-fset-element "geo" *vcard-namespace*))
            (param-element (extract-parameters
                            params
@@ -269,6 +297,7 @@
   (named-seq?
    (<- result (content-line? "LOGO"))
    (destructuring-bind (group name params value) result
+     (declare (ignore group name))
      (let ((logo-node (make-fset-element "logo" *vcard-namespace*))
            (param-element (extract-parameters
                            params
@@ -296,6 +325,7 @@
   (named-seq?
    (<- result (content-line? "TEL"))
    (destructuring-bind (group name params value) result
+     (declare (ignore group name))
      (let ((tel-node (make-fset-element "tel" *vcard-namespace*))
            (param-element (stp:make-element "parameters" *vcard-namespace*))
            (types (mapcan #'second
@@ -325,6 +355,7 @@
   (named-seq?
    (<- result (content-line? "TITLE"))
    (destructuring-bind (group name params value) result
+     (declare (ignore group name))
      (let ((title-node (make-fset-element "title" *vcard-namespace*))
            (param-element (extract-parameters
                            params
@@ -341,8 +372,8 @@
 (defun version? () 
   (named-seq?
    (<- result (content-line? "VERSION"))
-   (destructuring-bind (group name params value)
-       result
+   (destructuring-bind (group name params value) result
+       (declare (ignore group name params))
      (setf *current-vcard-version* value)
      nil)))
 
