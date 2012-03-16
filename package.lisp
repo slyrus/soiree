@@ -16,5 +16,6 @@
            #:contents-of-file
 
            #:remove-keyword
-           #:keep))
+           #:keep
+           #:when-let))
 
