@@ -214,7 +214,21 @@
        (make-text-nodes "text" value)))))
 
 ;; 6.2.7 gender
-(defun gender (result) (text-content result))
+(defun gender (result)
+  (destructuring-bind (group name params value) result
+    (declare (ignore group name params))
+    (destructuring-bind (sex &optional identity)
+        (split-string value :delimiter #\;)
+      (let ((gender-element (stp:make-element "gender" *default-namespace*)))
+        (when sex
+          (stp:append-child
+           gender-element
+           (make-text-nodes "sex" sex)))
+        (when identity
+          (stp:append-child
+           gender-element
+           (make-text-nodes "identity" identity)))
+        gender-element))))
 
 (defun adr (result)
   (destructuring-bind (group name params value) result
