@@ -33,28 +33,28 @@
   (when-let (language
              (caadar (keep "language" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "language" *vcard-namespace*)
-                      (make-text-nodes "language-tag" language))))
+                      (make-text-node "language-tag" language))))
 
 ;; 5.2 pref
 (defun param-pref (params)
   (when-let (pref
              (caadar (keep "pref" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "pref" *vcard-namespace*)
-                      (make-text-nodes "integer" pref))))
+                      (make-text-node "integer" pref))))
 
 ;; Note that there is no section 5.3 in the spec!
 ;; 5.4 altid
 (defun param-altid (params)
   (when-let (altid (caadar (keep "altid" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "altid" *vcard-namespace*)
-                      (make-text-nodes "text" altid))))
+                      (make-text-node "text" altid))))
 ;; 5.5 pid
 (defun param-pid (params)
   (when-let (pids
              (mapcan #'second (keep "pid" params :test #'string-equal :key #'car)))
     (reduce (lambda (parent pid)
               (stp:append-child parent
-                                (make-text-nodes "text" pid)))
+                                (make-text-node "text" pid)))
             pids :initial-value (stp:make-element "pid" *vcard-namespace*))))
 
 ;; 5.6 type
@@ -63,7 +63,7 @@
              (mapcan #'second (keep "type" params :test #'string-equal :key #'car)))
     (reduce (lambda (parent type)
               (stp:append-child parent
-                                (make-text-nodes "text" type)))
+                                (make-text-node "text" type)))
             types :initial-value (stp:make-element "type" *vcard-namespace*))))
 
 ;; 5.7 mediatype
@@ -71,7 +71,7 @@
   (when-let (mediatype
              (caadar (keep "mediatype" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "mediatype" *vcard-namespace*)
-                      (make-text-nodes "text" mediatype))))
+                      (make-text-node "text" mediatype))))
 
 ;; 5.8 calscale
 (defparameter *calscales* '("gregorian"))
@@ -83,26 +83,27 @@
       (unless (cl:member calscale *calscales* :test #'string-equal)
         (error "Unknown calscale: ~A" calscale)))
     (stp:append-child (stp:make-element "calscale" *vcard-namespace*)
-                      (make-text-nodes "text" calscale))))
+                      (make-text-node "text" calscale))))
 
 ;; 5.9 sort-as TBD
 (defun param-sort-as (params)
   (when-let (sort-as (caadar (keep "sort-as" params
                                    :test #'string-equal :key #'car)))
-    (stp:append-child (stp:make-element "sort-as" *vcard-namespace*)
-                      (make-text-nodes "text" sort-as))))
+    (reduce #'stp:append-child
+            (apply #'make-text-node-list "text" (split-string sort-as))
+            :initial-value (stp:make-element "sort-as" *vcard-namespace*))))
 
 ;; 5.10 geo
 (defun param-geo (params)
   (when-let (geo (caadar (keep "geo" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "geo" *vcard-namespace*)
-                      (make-text-nodes "uri" geo))))
+                      (make-text-node "uri" geo))))
 
 ;; 5.11 tz
 (defun param-tz (params)
   (when-let (tz (caadar (keep "tz" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "tz" *vcard-namespace*)
-                      (make-text-nodes "uri" tz))))
+                      (make-text-node "uri" tz))))
 
 ;; parameter utility routines
 (defun add-params (param-list params)
@@ -126,13 +127,16 @@
              (param-element (extract-parameters
                              params
                              ,parameter-functions)))
-         (stp:append-child
-          (if (plusp (stp:number-of-children param-element))
-              (stp:append-child node param-element)
-              node)
-          ,(if multiple-values
-               `(make-text-nodes ,value-node-type value)
-               `(make-text-node ,value-node-type value)))))))
+         (when (plusp (stp:number-of-children param-element))
+           (stp:append-child node param-element))
+         ,(if multiple-values
+              `(reduce #'stp:append-child
+                       (apply #'make-text-node-list ,value-node-type
+                              (split-string value))
+                       :initial-value node)
+              `(stp:append-child
+                node
+                (make-text-node ,value-node-type value)))))))
 
 ;; 6.1.3 source
 (def-generic-property source "source"
@@ -194,7 +198,7 @@
        (if (plusp (stp:number-of-children param-element))
            (stp:append-child bday-node param-element)
            bday-node)
-       (make-text-nodes "text" value)))))
+       (make-text-node "text" value)))))
 
 ;; 6.2.6 anniversary
 ;; FIXME: we should support the various data elements, instead of just text
@@ -209,7 +213,7 @@
        (if (plusp (stp:number-of-children param-element))
            (stp:append-child anniversary-node param-element)
            anniversary-node)
-       (make-text-nodes "text" value)))))
+       (make-text-node "text" value)))))
 
 ;; 6.2.7 gender
 (defun gender (result)
@@ -221,11 +225,11 @@
         (when sex
           (stp:append-child
            gender-element
-           (make-text-nodes "sex" sex)))
+           (make-text-node "sex" sex)))
         (when identity
           (stp:append-child
            gender-element
-           (make-text-nodes "identity" identity)))
+           (make-text-node "identity" identity)))
         gender-element))))
 
 ;; 6.3.1 adr
@@ -282,7 +286,7 @@
             (reduce
              (lambda (parent child)
                (stp:append-child parent
-                                 (make-text-nodes "text" (string-downcase child))))
+                                 (make-text-node "text" (string-downcase child))))
              tel-types
              :initial-value type-element)
             (stp:append-child param-element type-element))))

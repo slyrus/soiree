@@ -6,6 +6,7 @@
 
            #:make-text-node
            #:make-text-nodes
+           #:make-text-node-list
 
            #:text-content
            #:uri-content
@@ -38,6 +39,12 @@
             (stp:append-child element (stp:make-text x)))
           strings
           :initial-value (stp:make-element element-tag *default-namespace*)))
+
+(defun make-text-node-list (element-tag &rest strings)
+  (mapcar (lambda (x)
+            (stp:append-child (stp:make-element element-tag *default-namespace*)
+                              (stp:make-text x)))
+          strings))
 
 (def-cached-parser crlf?
   (seq-list? #\Return #\Newline))
