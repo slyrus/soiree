@@ -18,6 +18,13 @@
 
 (defparameter *current-vcard-version* nil)
 
+(defun make-pref-element (&optional (value 1))
+  (stp:append-child
+   (stp:make-element "pref" *vcard-namespace*)
+   (stp:append-child
+    (stp:make-element "integer" *vcard-namespace*)
+    (stp:make-text (format nil "~A" value)))))
+
 ;;;
 ;;; Section 5: Parameters
 
@@ -79,6 +86,11 @@
                       (make-text-nodes "text" calscale))))
 
 ;; 5.9 sort-as TBD
+(defun param-sort-as (params)
+  (when-let (sort-as (caadar (keep "sort-as" params
+                                   :test #'string-equal :key #'car)))
+    (stp:append-child (stp:make-element "sort-as" *vcard-namespace*)
+                      (make-text-nodes "text" sort-as))))
 
 ;; 5.10 geo
 (defun param-geo (params)
@@ -104,38 +116,36 @@
 ;;;
 ;;; Section 6: Properties
 
+(defmacro def-generic-property (property-name element-name
+                                parameter-functions value-node-type
+                                &key multiple-values)
+  `(defun ,property-name (result)
+     (destructuring-bind (group name params value) result
+       (declare (ignore group name))
+       (let ((node (stp:make-element ,element-name *vcard-namespace*))
+             (param-element (extract-parameters
+                             params
+                             ,parameter-functions)))
+         (stp:append-child
+          (if (plusp (stp:number-of-children param-element))
+              (stp:append-child node param-element)
+              node)
+          ,(if multiple-values
+               `(make-text-nodes ,value-node-type value)
+               `(make-text-node ,value-node-type value)))))))
+
 ;; 6.1.3 source
-(defun source (result)
-  (destructuring-bind (group name params value) result
-    (declare (ignore group name))
-    (let ((source-node (stp:make-element "source" *vcard-namespace*))
-          (param-element (extract-parameters
-                          params
-                          (list #'param-altid #'param-pid #'param-pref
-                                #'param-mediatype))))
-      (stp:append-child
-       (if (plusp (stp:number-of-children param-element))
-           (stp:append-child source-node param-element)
-           source-node)
-       (make-text-nodes "uri" value)))))
+(def-generic-property source "source"
+  (list #'param-altid #'param-pid #'param-pref #'param-mediatype)
+  "uri")
 
 ;; 6.1.4 kind
-(defun kind (result) (text-content result))
+(def-generic-property kind "kind" nil "uri")
 
 ;; 6.2.1 fn
-(defun fn (result)
-  (destructuring-bind (group name params value) result
-    (declare (ignore group name))
-    (let ((fn-node (stp:make-element "fn" *vcard-namespace*))
-          (param-element (extract-parameters
-                          params
-                          (list #'param-language #'param-altid #'param-pid
-                                #'param-pref #'param-type))))
-      (stp:append-child
-       (if (plusp (stp:number-of-children param-element))
-           (stp:append-child fn-node param-element)
-           fn-node)
-       (make-text-nodes "text" value)))))
+(def-generic-property fn "fn"
+  (list #'param-language #'param-altid #'param-pid #'param-pref #'param-type)
+  "text")
 
 ;; 6.2.2 n
 (defun n (result)
@@ -162,36 +172,14 @@
               :initial-value (stp:make-element "n" *vcard-namespace*)))))
 
 ;; 6.2.3 nickname
-(defun nickname (result)
-  (destructuring-bind (group name params value) result
-    (declare (ignore group name))
-    (let ((nickname-node (stp:make-element "nickname" *vcard-namespace*))
-          (param-element (extract-parameters
-                          params
-                          (list #'param-language #'param-altid #'param-pid
-                                #'param-pref #'param-type))))
-      (reduce #'stp:append-child
-              (mapcar (lambda (name)
-                        (make-text-nodes "text" name))
-                      (split-string value))
-              :initial-value (if (plusp (stp:number-of-children param-element))
-                                 (stp:append-child nickname-node param-element)
-                                 nickname-node)))))
+(def-generic-property nickname "nickname"
+  (list #'param-language #'param-altid #'param-pid #'param-pref #'param-type)
+  "text" :multiple-values t)
 
 ;; 6.2.4 photo
-(defun photo (result)
-  (destructuring-bind (group name params value) result
-    (declare (ignore group name))
-    (let ((photo-node (stp:make-element "photo" *vcard-namespace*))
-          (param-element (extract-parameters
-                          params
-                          (list #'param-altid #'param-pid #'param-pref
-                                #'param-type #'param-mediatype))))
-      (stp:append-child
-       (if (plusp (stp:number-of-children param-element))
-           (stp:append-child photo-node param-element)
-           photo-node)
-       (make-text-nodes "uri" value)))))
+(def-generic-property photo "photo"
+  (list #'param-altid #'param-pid #'param-pref #'param-type #'param-mediatype)
+  "uri")
 
 ;; 6.2.5 bday
 ;; FIXME: we should support the various data elements, instead of just text
@@ -274,84 +262,9 @@
                              (split-string country)))
                 :initial-value adr-node)))))
 
-(defun caladruri (result) (text-content result))
-(defun caluri (result) (text-content result))
-
-;; fix me -- categories needs to accept multiple values
-(defun categories (result) (text-content result))
-
-(defun clientpidmap (result) (text-content result))
-(defun email (result) (text-content result))
-
-(defun fburl (result) (uri-content result))
-
-(defun impp (result) (uri-content result))
-(defun key (result) (uri-content result))
-
-;;; FIXME LANG is broken
-(defun lang (result) (text-content result))
-
-(defun member (result) (text-content result))
-
-(defun note (result) (text-content result))
-(defun org (result) (text-content result))
-
-(defun related (result) (text-content result))
-(defun rev (result) (text-content result))
-
-(defun role (result)
-  (destructuring-bind (group name params value) result
-    (declare (ignore group name))     
-    (let ((role-node (stp:make-element "role" *vcard-namespace*))
-          (param-element (extract-parameters
-                          params
-                          (list #'param-language #'param-altid #'param-pid
-                                #'param-pref #'param-type))))
-      (stp:append-child
-       (if (plusp (stp:number-of-children param-element))
-           (stp:append-child role-node param-element)
-           role-node)
-       (make-text-nodes "text" value)))))
-
-(defun geo (result)
-  (destructuring-bind (group name params value) result
-    (declare (ignore group name))
-    (let ((geo-node (stp:make-element "geo" *vcard-namespace*))
-          (param-element (extract-parameters
-                          params
-                          (list #'param-altid #'param-pid #'param-pref
-                                #'param-type #'param-mediatype))))
-      (stp:append-child
-       (if (plusp (stp:number-of-children param-element))
-           (stp:append-child geo-node param-element)
-           geo-node)
-       (make-text-nodes "uri" value)))))
-
-(defun logo (result)
-  (destructuring-bind (group name params value) result
-    (declare (ignore group name))
-    (let ((logo-node (stp:make-element "logo" *vcard-namespace*))
-          (param-element (extract-parameters
-                          params
-                          (list #'param-language #'param-altid #'param-pid
-                                #'param-pref #'param-type #'param-mediatype))))
-      (stp:append-child
-       (if (plusp (stp:number-of-children param-element))
-           (stp:append-child logo-node param-element)
-           logo-node)
-       (make-text-nodes "uri" value)))))
-
-(defun sound (result) (text-content result))
-
-(defun make-pref-element (&optional (value 1))
-  (stp:append-child
-   (stp:make-element "pref" *vcard-namespace*)
-   (stp:append-child
-    (stp:make-element "integer" *vcard-namespace*)
-    (stp:make-text (format nil "~A" value)))))
-
+;; 6.4.1 tel
 (defparameter *tel-types* '("work" "home" "text" "voice" "fax"
-                            "cell" "video" "pager""textphone"))
+                            "cell" "video" "pager" "textphone"))
 
 (defun tel (result)
   (destructuring-bind (group name params value) result
@@ -381,21 +294,115 @@
         (stp:make-element "text" *vcard-namespace*)
         (stp:make-text value))))))
 
-(defun title (result)
-  (destructuring-bind (group name params value) result
-    (declare (ignore group name))
-    (let ((title-node (stp:make-element "title" *vcard-namespace*))
-          (param-element (extract-parameters
-                          params
-                          (list #'param-language #'param-altid #'param-pid
-                                #'param-pref #'param-type))))
-      (stp:append-child
-       (if (plusp (stp:number-of-children param-element))
-           (stp:append-child title-node param-element)
-           title-node)
-       (make-text-nodes "text" value)))))
+;; 6.4.2 email
+(def-generic-property email "email"
+  (list #'param-altid #'param-pid #'param-pref #'param-type)
+  "text")
 
-(defun tz (result) (text-content result))
+;; 6.4.3 impp
+(def-generic-property impp "impp"
+  (list #'param-altid #'param-pid #'param-pref #'param-type #'param-mediatype)
+  "uri")
+
+;; 6.4.4 lang
+(def-generic-property lang "lang"
+  (list #'param-altid #'param-pid #'param-pref #'param-type)
+  "language-tag")
+
+;; 6.5.1 tz
+(def-generic-property tz "tz"
+  (list #'param-altid #'param-pid #'param-pref #'param-type #'param-mediatype)
+  "uri")
+
+;; 6.5.2 geo
+(def-generic-property geo "geo"
+  (list #'param-altid #'param-pid #'param-pref #'param-type #'param-mediatype)
+  "uri")
+
+;; 6.6.1 title
+(def-generic-property title "title"
+  (list #'param-language #'param-altid #'param-pid #'param-pref #'param-type)
+  "text")
+
+;; 6.6.2 role
+(def-generic-property role "role"
+  (list #'param-language #'param-altid #'param-pid #'param-pref #'param-type)
+  "text")
+
+;; 6.6.3 logo
+(def-generic-property logo "logo"
+  (list #'param-language #'param-altid #'param-pid #'param-pref #'param-type
+        #'param-mediatype)
+  "uri")
+
+;; 6.6.4 org
+(def-generic-property org "org"
+  (list #'param-language #'param-altid #'param-pid #'param-pref #'param-type
+        #'param-sort-as)
+  "text" :multiple-values t)
+
+;; 6.6.5 member
+(def-generic-property member "member"
+  (list #'param-altid #'param-pid #'param-pref #'param-mediatype)
+  "uri")
+
+;; 6.6.6 related
+;; FIXME this is broken
+(defun related (result) (text-content result))
+
+;; 6.7.1 categories
+(def-generic-property categories "categories"
+  (list #'param-language #'param-altid #'param-pid #'param-pref #'param-type)
+  "text" :multiple-values t)
+
+;; 6.7.2 note
+(def-generic-property note "note"
+  (list #'param-language #'param-altid #'param-pid #'param-pref #'param-type)
+  "text")
+
+;; 6.7.3 prodid
+(def-generic-property prodid "prodid" nil "text")
+
+;; 6.7.4 rev
+(def-generic-property rev "rev" nil "time")
+
+;; 6.7.5 sound
+(def-generic-property sound "sound"
+  (list #'param-altid #'param-pid #'param-pref #'param-type #'param-mediatype)
+  "uri")
+
+;; 6.7.6 uid
+(def-generic-property uid "uid" nil "uri")
+
+;; 6.7.7 clientpidmap
+;; FIXME this needs to support the source id element!
+(def-generic-property clientpidmap "clientpidmap" nil "uri")
+
+;; 6.7.8 url
+(def-generic-property url "url"
+  (list #'param-altid #'param-pid #'param-pref #'param-type #'param-mediatype)
+  "uri")
+
+;; 6.8.1 key
+;; FIXME we should support either value-key or value-uri
+(def-generic-property key "key"
+  (list #'param-altid #'param-pid #'param-pref #'param-type #'param-mediatype)
+  "uri")
+
+;; 6.9.1 fburl
+(def-generic-property fburl "fburl"
+  (list #'param-altid #'param-pid #'param-pref #'param-type #'param-mediatype)
+  "uri")
+
+;; 6.9.2 caladruri
+(def-generic-property caladruri "caladruri"
+  (list #'param-altid #'param-pid #'param-pref #'param-type #'param-mediatype)
+  "uri")
+
+;; 6.9.3 caluri
+(def-generic-property caluri "caluri"
+  (list #'param-altid #'param-pid #'param-pref #'param-type #'param-mediatype)
+  "uri")
 
 (defun version (result) 
   (destructuring-bind (group name params value) result
