@@ -4,6 +4,7 @@
   (:export #:*strict-parsing*
            #:*default-namespace*
 
+           #:make-text-node
            #:make-text-nodes
 
            #:text-content
@@ -19,13 +20,6 @@
            #:split-string
 
            #:name?
-
-           #:geo
-           #:uid
-           #:url
-           #:version
-           #:prodid
-           
            #:x-name-line?
            #:content-line?))
 
@@ -35,11 +29,13 @@
 
 (defparameter *strict-parsing* t)
 
+(defun make-text-node (element-tag string)
+  (stp:append-child (stp:make-element element-tag *default-namespace*)
+                    (stp:make-text string)))
+
 (defun make-text-nodes (element-tag &rest strings)
   (reduce (lambda (element x)
-            (stp:append-child
-             element
-             (stp:make-text x)))
+            (stp:append-child element (stp:make-text x)))
           strings
           :initial-value (stp:make-element element-tag *default-namespace*)))
 
@@ -185,14 +181,6 @@
      (stp:append-child
       (stp:make-element "uri" *default-namespace*)
       (stp:make-text value)))))
-
-(defun geo (result) (uri-content result))
-
-(defun uid (result) (uri-content result))
-(defun url (result) (uri-content result))
-
-(defun version (result) nil)
-(defun prodid (result) (text-content result))
 
 (defun long-line-extension? ()
   (named-seq?
