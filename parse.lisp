@@ -126,8 +126,9 @@
    (between? (safe-char?) 1 nil 'string)
    (named-seq?
     #\"
-    (between? (qsafe-char?) 1 nil 'string)
-    #\")))
+    (<- quoted-value (between? (qsafe-char?) 1 nil 'string))
+    #\"
+    quoted-value)))
 
 (defun escaped-string? (char &optional (escape-char #\\))
   (many?
