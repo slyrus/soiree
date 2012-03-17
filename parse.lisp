@@ -165,8 +165,6 @@
    (<- name (between? (alphanum-or-dash?) 1 nil 'string))
    (concatenate 'string (string x) "-" name)))
 
-(defun text-element (tag string))
-
 (defun text-content (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group params))
@@ -230,15 +228,13 @@
           (zero)
           (result name)))))
 
-(defun content-line? (&optional name)
+(defun content-line? ()
   ;; [group "."] name *(";" param) ":" value CRLF
   (named-seq?
    (<- group (opt? (hook?
                     #'first
                     (seq-list? (group?) "."))))
-   (<- name (if name
-                name
-                (name-not-end?)))
+   (<- name (name-not-end?))
    (<- params (many? (named-seq?
                       ";"
                       (<- param (param?))
