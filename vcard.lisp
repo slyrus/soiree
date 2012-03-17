@@ -154,26 +154,30 @@
 ;; 6.2.2 n
 (defun n (result)
   (destructuring-bind (group name params value) result
-    (declare (ignore group name params))
-    (destructuring-bind (family-names
-                         given-names
-                         additional-names
-                         honorific-prefixes
-                         honorific-suffixes)
-        (split-string value :delimiter #\;)
-      (reduce (lambda (parent child)
-                (stp:append-child parent child))
-              (list (apply #'make-text-nodes "surname"
-                           (split-string family-names))
-                    (apply #'make-text-nodes "given"
-                           (split-string given-names))
-                    (apply #'make-text-nodes "additional"
-                           (split-string additional-names))
-                    (apply #'make-text-nodes "prefix"
-                           (split-string honorific-prefixes))
-                    (apply #'make-text-nodes "suffix"
-                           (split-string honorific-suffixes)))
-              :initial-value (stp:make-element "n" *vcard-namespace*)))))
+    (declare (ignore group name))
+    (let ((n-node (stp:make-element "n" *vcard-namespace*))
+          (param-element (extract-parameters
+                          params
+                          (list #'param-language #'param-sort-as
+                                #'param-altid))))
+      (destructuring-bind (family-names given-names additional-names
+                           honorific-prefixes honorific-suffixes)
+          (split-string value :delimiter #\;)
+        (reduce (lambda (parent child)
+                  (stp:append-child parent child))
+                (list (apply #'make-text-nodes "surname"
+                             (split-string family-names))
+                      (apply #'make-text-nodes "given"
+                             (split-string given-names))
+                      (apply #'make-text-nodes "additional"
+                             (split-string additional-names))
+                      (apply #'make-text-nodes "prefix"
+                             (split-string honorific-prefixes))
+                      (apply #'make-text-nodes "suffix"
+                             (split-string honorific-suffixes)))
+                :initial-value (if (plusp (stp:number-of-children param-element))
+                                   (stp:append-child n-node param-element)
+                                   n-node))))))
 
 ;; 6.2.3 nickname
 (def-generic-property nickname "nickname"
