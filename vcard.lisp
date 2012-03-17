@@ -79,8 +79,18 @@
                       (make-text-nodes "text" calscale))))
 
 ;; 5.9 sort-as TBD
-;; 5.10 geo TBD
-;; 5.11 tz TBD
+
+;; 5.10 geo
+(defun param-geo (params)
+  (when-let (geo (caadar (keep "geo" params :test #'string-equal :key #'car)))
+    (stp:append-child (stp:make-element "geo" *vcard-namespace*)
+                      (make-text-nodes "uri" geo))))
+
+;; 5.11 tz
+(defun param-tz (params)
+  (when-let (tz (caadar (keep "tz" params :test #'string-equal :key #'car)))
+    (stp:append-child (stp:make-element "tz" *vcard-namespace*)
+                      (make-text-nodes "uri" tz))))
 
 ;; parameter utility routines
 (defun add-params (param-list params)
@@ -230,28 +240,39 @@
            (make-text-nodes "identity" identity)))
         gender-element))))
 
+;; 6.3.1 adr
 (defun adr (result)
   (destructuring-bind (group name params value) result
-    (declare (ignore group name params))
+    (declare (ignore group name))
     (destructuring-bind (pobox ext street locality region code country)
         (split-string value :delimiter #\;)
-      (reduce (lambda (parent child)
-                (stp:append-child parent child))
-              (list (apply #'make-text-nodes "pobox"
-                           (split-string pobox))
-                    (apply #'make-text-nodes "ext"
-                           (split-string ext))
-                    (apply #'make-text-nodes "street"
-                           (split-string street))
-                    (apply #'make-text-nodes "locality"
-                           (split-string locality))
-                    (apply #'make-text-nodes "region"
-                           (split-string region))
-                    (apply #'make-text-nodes "code"
-                           (split-string code))
-                    (apply #'make-text-nodes "country"
-                           (split-string country)))
-              :initial-value (stp:make-element "adr" *vcard-namespace*)))))
+      (let ((adr-node (stp:make-element "adr" *vcard-namespace*))
+            (param-element (extract-parameters
+                            params
+                            (list #'param-language #'param-altid #'param-pid
+                                  #'param-pref #'param-type #'param-geo #'param-tz
+                                  ;; FIXME add param-label!
+                                  ))))
+        (if (plusp (stp:number-of-children param-element))
+            (stp:append-child adr-node param-element)
+            adr-node)
+        (reduce (lambda (parent child)
+                  (stp:append-child parent child))
+                (list (apply #'make-text-nodes "pobox"
+                             (split-string pobox))
+                      (apply #'make-text-nodes "ext"
+                             (split-string ext))
+                      (apply #'make-text-nodes "street"
+                             (split-string street))
+                      (apply #'make-text-nodes "locality"
+                             (split-string locality))
+                      (apply #'make-text-nodes "region"
+                             (split-string region))
+                      (apply #'make-text-nodes "code"
+                             (split-string code))
+                      (apply #'make-text-nodes "country"
+                             (split-string country)))
+                :initial-value adr-node)))))
 
 (defun caladruri (result) (text-content result))
 (defun caluri (result) (text-content result))
