@@ -131,7 +131,7 @@
     #\"
     (<- quoted-value (between? (qsafe-char?) 1 nil 'string))
     #\"
-    quoted-value)))
+    (concatenate 'string "\"" quoted-value "\""))))
 
 (defun escaped-string? (char &optional (escape-char #\\))
   (many?
@@ -139,8 +139,8 @@
     (named-seq? escape-char (<- c (item)) c)
     char)))
 
-(defun split-string (str &key (escape-char #\\) (delimiter #\,))
-  (let (escaped acc cur)
+(defun split-string (str &key (escape-char #\\) (delimiter #\,) (quote-char #\"))
+  (let (escaped acc cur quoted)
     (loop for c across str
           do (if escaped
                  (progn
@@ -148,11 +148,15 @@
                          (t (push c cur)))
                    (setf escaped nil))
                  (progn
-                   (cond ((eql c delimiter)
+                   (cond ((and (not quoted) (eql c delimiter))
                           (push (nreverse (coerce cur 'string)) acc)
                           (setf cur nil))
                          ((eql c escape-char)
                           (setf escaped t))
+                         ((and (not escaped) (not quoted) (eql c quote-char))
+                          (setf quoted t))
+                         ((and (not escaped) quoted (eql c quote-char))
+                          (setf quoted nil))
                          (t (push c cur)))))
           finally
              (push (nreverse (coerce cur 'string)) acc)

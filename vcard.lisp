@@ -237,6 +237,11 @@
         gender-element))))
 
 ;; 6.3.1 adr
+(defun param-label (params)
+  (when-let (altid (caadar (keep "label" params :test #'string-equal :key #'car)))
+    (stp:append-child (stp:make-element "label" *vcard-namespace*)
+                      (make-text-node "text" altid))))
+
 (defun adr (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))
@@ -247,8 +252,7 @@
                             params
                             (list #'param-language #'param-altid #'param-pid
                                   #'param-pref #'param-type #'param-geo #'param-tz
-                                  ;; FIXME add param-label!
-                                  ))))
+                                  #'param-label))))
         (if (plusp (stp:number-of-children param-element))
             (stp:append-child adr-node param-element)
             adr-node)
