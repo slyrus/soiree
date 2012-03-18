@@ -18,13 +18,6 @@
 
 (defparameter *current-vcard-version* nil)
 
-(defun make-pref-element (&optional (value 1))
-  (stp:append-child
-   (stp:make-element "pref" *vcard-namespace*)
-   (stp:append-child
-    (stp:make-element "integer" *vcard-namespace*)
-    (stp:make-text (format nil "~A" value)))))
-
 ;;; Section 4: Value Types
 
 ;; 4.1 value-text and value-text-list
@@ -47,13 +40,14 @@
 (defun value-date? ()
   (choices
    (hook? (lambda (x)
-            (destructuring-bind (y1 y2 y3 y4 m1 m2 d1 d2)
-                x
-              (let ((year (digit-chars-to-number (list y1 y2 y3 y4)))
-                    (month (+ (* 10 m1) m2))
-                    (day (+ (* 10 d1) d2)))
+            (destructuring-bind (year-digits month-digits day-digits) x
+              (let ((year (digit-chars-to-number year-digits))
+                    (month (+ (* 10 (first month-digits)) (second month-digits)))
+                    (day (+ (* 10 (first day-digits)) (second month-digits))))
                 (list year month day))))
-          (times? (hook? #'digit-char-p (digit?)) 8))
+          (seq-list? (times? (hook? #'digit-char-p (digit?)) 4)
+                     (times? (hook? #'digit-char-p (digit?)) 2)
+                     (times? (hook? #'digit-char-p (digit?)) 2)))
    (hook? (lambda (x)
             (destructuring-bind (year-digits dash month-digits) x
               (declare (ignore dash))
@@ -72,8 +66,7 @@
                 (list nil month day))))
           (seq-list? (times? #\- 2)
                      (times? (hook? #'digit-char-p (digit?)) 2)
-                     (opt?
-                      (times? (hook? #'digit-char-p (digit?)) 2))))
+                     (opt? (times? (hook? #'digit-char-p (digit?)) 2))))
    (hook? (lambda (x)
             (destructuring-bind (dashes day-digits) x
               (declare (ignore dashes))
@@ -262,7 +255,7 @@
        (if (plusp (stp:number-of-children param-element))
            (stp:append-child bday-node param-element)
            bday-node)
-       (make-text-node "text" value)))))
+       (make-value-text value)))))
 
 ;; 6.2.6 anniversary
 ;; FIXME: we should support the various data elements, instead of just text
@@ -277,7 +270,7 @@
        (if (plusp (stp:number-of-children param-element))
            (stp:append-child anniversary-node param-element)
            anniversary-node)
-       (make-text-node "text" value)))))
+       (make-value-text value)))))
 
 ;; 6.2.7 gender
 (defun gender (result)
@@ -338,6 +331,13 @@
 (defparameter *tel-types* '("work" "home" "text" "voice" "fax"
                             "cell" "video" "pager" "textphone"))
 
+(defun make-pref-element (&optional (value 1))
+  (stp:append-child
+   (stp:make-element "pref" *vcard-namespace*)
+   (stp:append-child
+    (stp:make-element "integer" *vcard-namespace*)
+    (stp:make-text (format nil "~A" value)))))
+
 (defun tel (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))
@@ -348,23 +348,20 @@
       (cond ((equal *current-vcard-version* "3.0")
              (when (cl:member "pref" types :test #'string-equal)
                (stp:append-child param-element (make-pref-element)))))
-      (let ((tel-types (intersection types *tel-types* :test #'string-equal)))
-        (when tel-types
-          (let ((type-element (stp:make-element "type" *vcard-namespace*)))
-            (reduce
-             (lambda (parent child)
-               (stp:append-child parent
-                                 (make-text-node "text" (string-downcase child))))
-             tel-types
-             :initial-value type-element)
-            (stp:append-child param-element type-element))))
+      (when-let (tel-types (remove "pref" types :test #'string-equal))
+        (let ((type-element (stp:make-element "type" *vcard-namespace*)))
+          (reduce
+           (lambda (parent child)
+             (stp:append-child parent
+                               (make-text-node "text" (string-downcase child))))
+           tel-types
+           :initial-value type-element)
+          (stp:append-child param-element type-element)))
       (stp:append-child
        (if (plusp (stp:number-of-children param-element))
            (stp:append-child tel-node param-element)
            tel-node)
-       (stp:append-child
-        (stp:make-element "text" *vcard-namespace*)
-        (stp:make-text value))))))
+       (make-value-text value)))))
 
 ;; 6.4.2 email
 (def-generic-property email "email"
