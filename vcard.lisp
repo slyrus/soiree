@@ -1,7 +1,7 @@
 
 (cl:defpackage :soiree-vcard
   (:use :common-lisp :parser-combinators :soiree :soiree-parse)
-  (:shadow #:version #:geo #:member))
+  (:shadow #:member))
 
 (cl:in-package :soiree-vcard)
 
