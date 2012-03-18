@@ -25,6 +25,66 @@
     (stp:make-element "integer" *vcard-namespace*)
     (stp:make-text (format nil "~A" value)))))
 
+;;; Section 4: Value Types
+
+;; 4.1 value-text and value-text-list
+
+(defun make-value-text (string)
+  (make-text-node "text" string))
+
+(defun make-value-text-list (strings)
+  (mapcar #'make-value-text strings))
+
+;; 4.2 value-uri
+(defun make-value-uri (string)
+  (make-text-node "uri" string))
+
+;; 4.3 value-date
+;; "\d{8}|\d{4}-\d\d|--\d\d(\d\d)?|---\d\d"
+(defun digit-chars-to-number (chars)
+  (reduce (lambda (acc dig) (+ dig (* 10 acc))) chars :initial-value 0))
+
+(defun value-date? ()
+  (choices
+   (hook? (lambda (x)
+            (destructuring-bind (y1 y2 y3 y4 m1 m2 d1 d2)
+                x
+              (let ((year (digit-chars-to-number (list y1 y2 y3 y4)))
+                    (month (+ (* 10 m1) m2))
+                    (day (+ (* 10 d1) d2)))
+                (list year month day))))
+          (times? (hook? #'digit-char-p (digit?)) 8))
+   (hook? (lambda (x)
+            (destructuring-bind (year-digits dash month-digits) x
+              (declare (ignore dash))
+              (let ((year (digit-chars-to-number year-digits))
+                    (month (+ (* 10 (first month-digits)) (second month-digits))))
+                (list year month nil))))
+          (seq-list? (times? (hook? #'digit-char-p (digit?)) 4)
+                     #\-
+                     (times? (hook? #'digit-char-p (digit?)) 2)))
+   (hook? (lambda (x)
+            (destructuring-bind (dashes month-digits day-digits) x
+              (declare (ignore dashes))
+              (let ((month (+ (* 10 (first month-digits)) (second month-digits)))
+                    (day (when day-digits
+                           (+ (* 10 (first day-digits)) (second day-digits)))))
+                (list nil month day))))
+          (seq-list? (times? #\- 2)
+                     (times? (hook? #'digit-char-p (digit?)) 2)
+                     (opt?
+                      (times? (hook? #'digit-char-p (digit?)) 2))))
+   (hook? (lambda (x)
+            (destructuring-bind (dashes day-digits) x
+              (declare (ignore dashes))
+              (let ((day (+ (* 10 (first day-digits)) (second day-digits))))
+                (list nil nil day))))
+          (seq-list? (times? #\- 3)
+                     (times? (hook? #'digit-char-p (digit?)) 2)))))
+
+(defun parse-value-date (string)
+  (parse-string* (value-date?) string))
+
 ;;;
 ;;; Section 5: Parameters
 
@@ -47,7 +107,7 @@
 (defun param-altid (params)
   (when-let (altid (caadar (keep "altid" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "altid" *vcard-namespace*)
-                      (make-text-node "text" altid))))
+                      (make-value-text altid))))
 ;; 5.5 pid
 (defun param-pid (params)
   (when-let (pids
@@ -71,7 +131,7 @@
   (when-let (mediatype
              (caadar (keep "mediatype" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "mediatype" *vcard-namespace*)
-                      (make-text-node "text" mediatype))))
+                      (make-value-text mediatype))))
 
 ;; 5.8 calscale
 (defparameter *calscales* '("gregorian"))
@@ -85,25 +145,25 @@
     (stp:append-child (stp:make-element "calscale" *vcard-namespace*)
                       (make-text-node "text" calscale))))
 
-;; 5.9 sort-as TBD
+;; 5.9 sort-as
 (defun param-sort-as (params)
   (when-let (sort-as (caadar (keep "sort-as" params
                                    :test #'string-equal :key #'car)))
     (reduce #'stp:append-child
-            (apply #'make-text-node-list "text" (split-string sort-as))
+            (make-value-text-list (split-string sort-as))
             :initial-value (stp:make-element "sort-as" *vcard-namespace*))))
 
 ;; 5.10 geo
 (defun param-geo (params)
   (when-let (geo (caadar (keep "geo" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "geo" *vcard-namespace*)
-                      (make-text-node "uri" geo))))
+                      (make-value-uri geo))))
 
 ;; 5.11 tz
 (defun param-tz (params)
   (when-let (tz (caadar (keep "tz" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "tz" *vcard-namespace*)
-                      (make-text-node "uri" tz))))
+                      (make-value-uri tz))))
 
 ;; parameter utility routines
 (defun add-params (param-list params)
