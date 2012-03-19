@@ -1,7 +1,7 @@
 soiree, a library for working with address book and calendar data in
 Common Lisp
 
-Copyright (c) 2011 Cyrus Harmon
+Copyright (c) 2011-2012 Cyrus Harmon
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
