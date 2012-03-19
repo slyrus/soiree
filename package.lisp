@@ -17,5 +17,6 @@
 
            #:remove-keyword
            #:keep
-           #:when-let))
+           #:when-let
+           #:convert-string-to-dos-line-endings))
 

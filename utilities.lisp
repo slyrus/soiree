@@ -44,3 +44,18 @@
      (when ,var
        ,@body)))
 
+(defun convert-string-to-dos-line-endings (string)
+  (with-output-to-string (out)
+    (with-input-from-string (stream string)
+      (loop for c = (read-char stream nil nil)
+            while c
+            do (cond ((eq c #\return)
+                      (write-char #\return out)
+                      (let ((next (read-char stream)))
+                        (write-char #\linefeed out)
+                        (unless (eq next #\linefeed)
+                          (write-char next out))))
+                     ((eq c #\linefeed)
+                      (write-char #\return out)
+                      (write-char #\linefeed out))
+                     (t (write-char c out)))))))
