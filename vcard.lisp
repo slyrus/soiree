@@ -28,15 +28,19 @@
 (defun make-value-text-list (strings)
   (mapcar #'make-value-text strings))
 
+;;; Section 4: Value types
+
+;; Value type utility functions
+(defun digit-chars-to-number (chars)
+  (reduce (lambda (acc dig) (+ dig (* 10 acc))) chars :initial-value 0))
+
+
 ;; 4.2 value-uri
 (defun make-value-uri (string)
   (make-text-node "uri" string))
 
-;; 4.3 value-date
+;; 4.3.1 value-date
 ;; "\d{8}|\d{4}-\d\d|--\d\d(\d\d)?|---\d\d"
-(defun digit-chars-to-number (chars)
-  (reduce (lambda (acc dig) (+ dig (* 10 acc))) chars :initial-value 0))
-
 (defun value-date? ()
   (choices
    (hook? (lambda (x)
