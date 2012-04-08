@@ -1,4 +1,6 @@
 
+# Soiree (formerly cl-vcard)
+
 Ever since taking [Stuart
 Russell](http://www.cs.berkeley.edu/~russell/)'s [Knowledge
 Representation and Reasoning
@@ -32,7 +34,7 @@ do is to parse the VCARD data and I'm good to go. Fortunately, the
 spec lays out the file format nicely and this shouldn't be too
 terribly hard to parse.
 
-* Data Model?
+# Data Model?
 
 But, that leads to the next question of, having parsed the data, what
 I'm I going to _do_ with the data? Or, put another way, how am I going
@@ -47,7 +49,7 @@ allow traversal of a graph of data objects via key/value
 relationships. The VCARD format itself could be thought of as a
 (somewhat unwieldy) data model.
 
-* The VCARD Specification
+# The VCARD Specification
 
 The [VCARD 3.0 specification](http://tools.ietf.org/html/rfc6350)
 formally describes what VCARD data should look like. The problem is
@@ -65,7 +67,7 @@ rely on a specification to define the data model, it sure would be
 nice if the specification itself could be read, interrogated, and used
 by our programs.
 
-* xCard: VCARD XML Representation
+# xCard: VCARD XML Representation
 
 Enter the [xCard
 specification](http://tools.ietf.org/html/rfc6351). The
@@ -76,7 +78,7 @@ provides a machine-readable representation of the specification in the
 form of a [RELAX NG
 schema](http://tools.ietf.org/html/rfc6351#appendix-A).
 
-* RELAX NG
+# RELAX NG
 
 [RELAX
 NG](http://relaxng.org/) itself is an XML schema for describing XML
@@ -84,7 +86,7 @@ schemas. It provides for a human-friendly but machine-readable format
 for specifying RELAX NG schemas, the [RELAX NG Compact
 Syntax](http://relaxng.org/compact-20021121.html).
 
-* Back to xCard
+# Back to xCard
 
 So, we find the compact syntax for the [xCard
 schema](http://tools.ietf.org/html/rfc6351#appendix-A) at the end of
@@ -102,10 +104,10 @@ schema that defines the vCard semantics, as represented by an XML
 document, perhaps we can just use an in-memory representation of the
 XML data itself as our "data model" for
 reading/writing/querying/etc... the address book data. This is the
-approach I've taken with cl-vcard, and we'll come back to it
+approach I've taken with soiree, and we'll come back to it
 momentarily.
 
-* Parsing VCARDs parser-combinators
+# Parsing VCARDs parser-combinators
 
 For the moment, before we get into what are we transforming the data
 _to_, we need to consider what we're transforming the data _from_ and
@@ -138,29 +140,16 @@ API for writing parsers. The core of the parsing routine is shown below:
        (when name
          (list group name params (apply #'concatenate 'string value long-lines)))))
 
-* fset
-
-Parser combinators are designed to work with functional data
-structures, as it they may backtrack, and modifying data structures as
-one goes with parser combinators can lead to problems. Therefore, I
-use [fset](http://common-lisp.net/project/fset/), a functional
-collections library, for building the parsed representation of the
-data as I go. I could probably get away without doing this, but, it
-seems like a good idea to use a functional parser as such, rather than
-abusing the idea that we're not taking advantage of backtracking such
-that we can modify our data structures along the way as we do the
-parse.
-
 * Putting it all together
 
-Here's an example of using cl-vcard to parse a simple vCard:
+Here's an example of using soiree to parse a simple vCard:
 
-    (asdf:load-system 'cl-vcard)
+    (asdf:load-system 'soiree)
 
-    (cl:defpackage #:cl-vcard-example
-      (:use #:cl #:cl-vcard))
+    (cl:defpackage #:soiree-example
+      (:use #:cl #:soiree))
 
-    (cl:in-package #:cl-vcard-example)
+    (cl:in-package #:soiree-example)
 
     (defparameter *baba-oriley-vcard*
       "BEGIN:VCARD
@@ -183,9 +172,9 @@ Here's an example of using cl-vcard to parse a simple vCard:
 
 Doing this at the REPL, we see:
 
-    CL-VCARD-EXAMPLE> (defparameter *baba* (parse-vcard *baba-oriley-vcard*))
+    SOIREE-EXAMPLE> (defparameter *baba* (parse-vcard *baba-oriley-vcard*))
     *BABA*
-    CL-VCARD-EXAMPLE> *baba*
+    SOIREE-EXAMPLE> *baba*
     #.(CXML-STP-IMPL::DOCUMENT
        :CHILDREN '(#.(CXML-STP:ELEMENT
                       #| :PARENT of type DOCUMENT |#
@@ -230,7 +219,7 @@ OK, so far this has all been a lot of work and we haven't even gotten
 to access any of our data. We're almost there. We just need one more
 XML library (of course...). We _could_ work with the STP document directly:
 
-    CL-VCARD-EXAMPLE> (stp:string-value
+    SOIREE-EXAMPLE> (stp:string-value
      (stp:find-child
       "text"
       (stp:find-child
@@ -255,7 +244,7 @@ Shvedunov. Plexippus provides an implementation of the XPath spec that
 works with CXML documents. Using plexippus instead of walking the tree
 by hand as above, we can do:
 
-    (xpath:with-namespaces ((nil cl-vcard:*vcard-namespace*))
+    (xpath:with-namespaces ((nil soiree:*vcard-namespace*))
       (xpath:evaluate "string(/vcards/vcard/tel/*/text())" *baba*))
 
 Ignoring the with-namespaces macro invocation for a moment, we see a
@@ -271,7 +260,7 @@ namespace as above, but we'll do this in a macro in case we want to
 change this later:
 
     (defmacro with-vcard-namespace (&body body)
-      `(xpath:with-namespaces ((nil cl-vcard::*vcard-namespace*))
+      `(xpath:with-namespaces ((nil soiree::*vcard-namespace*))
          ,@body))
 
 Second, we'll make a little function for converting XPath query
@@ -315,7 +304,7 @@ tested) output is valid XML, that complies with the Relax NG schema.
 
 Here's another simple example of getting some data out of the xCard document:
 
-    CL-VCARD-EXAMPLE> (xpath:with-namespaces ((nil cl-vcard::*vcard-namespace*))
+    SOIREE-EXAMPLE> (xpath:with-namespaces ((nil soiree::*vcard-namespace*))
       (format nil "~A is a ~A who works at ~A and can be reached via e-mail at ~A"
               (xpath:evaluate "string(/vcards/vcard/fn/*/text())" *baba*)
               (xpath:evaluate "string(/vcards/vcard/title/*/text())" *baba*)
@@ -334,7 +323,7 @@ there's one problem. In the next blog post, I'll go into how one can
 talk to a CardDAV server and what one needs to change in DRAKMA to
 make this work. Next time...
 
-In the mean time, cl-vcard can be found on [github](https://github.com/slyrus/cl-vcard).
+In the mean time, soiree can be found on [github](https://github.com/slyrus/soiree).
 
 * References
 
@@ -347,8 +336,6 @@ In the mean time, cl-vcard can be found on [github](https://github.com/slyrus/cl
 3. [CXML-RNG](http://www.lichteblau.com/cxml-rng/)
 
 4. [cl-parser-combinators](https://github.com/Ramarren/cl-parser-combinators)
-
-5. [fset](http://common-lisp.net/project/fset/)
 
 6. [DRAKMA](http://weitz.de/drakma/)
 
