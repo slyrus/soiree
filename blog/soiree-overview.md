@@ -140,7 +140,7 @@ API for writing parsers. The core of the parsing routine is shown below:
        (when name
          (list group name params (apply #'concatenate 'string value long-lines)))))
 
-* Putting it all together
+# Putting it all together
 
 Here's an example of using soiree to parse a simple vCard:
 
@@ -198,7 +198,7 @@ for us to work with. But, before we get into actually doing anything
 with the data, let's take a digression into XML data representation
 and validation.
 
-* STP, CXML, RNG, CXML-RNG
+# STP, CXML, RNG, CXML-RNG
 
 Notice that we're using
 stp:serialize. [CXML-STP](http://www.lichteblau.com/cxml-stp/) is a
@@ -213,7 +213,7 @@ stp:append-child to construct the document tree. These, and the rest
 of the STP API, sit on top of Gilbert Baumann's [Closure XML (or CXML)
 library](http://common-lisp.net/project/cxml/).
 
-* What's the damn phone number?
+# What's the damn phone number?
 
 OK, so far this has all been a lot of work and we haven't even gotten
 to access any of our data. We're almost there. We just need one more
@@ -236,7 +236,7 @@ XML library (of course...). We _could_ work with the STP document directly:
 
 But this grows tedious. Fortunately, there's a better way.
 
-* Plexippus-XPath
+# Plexippus-XPath
 
 [Plexippus XPath](http://common-lisp.net/project/plexippus-xpath/) is
 another excellent library in the CXML family, written by Ivan
@@ -285,7 +285,7 @@ database, I could do:
 There's lots more one can do, but that should give you a flavor of how
 XPath can be used to effectively walk the document tree.
 
-* Validation
+# Validation
 
 As mentioned earlier, the xCard specification gives us a nice Relax NG
 (RNG) schema for data about individuals and other entities (as the
@@ -300,7 +300,7 @@ the Relax NG schema. The VCARD -> xCard transformation may not be
 complete (which it isn't yet), but at least we know that the (so far
 tested) output is valid XML, that complies with the Relax NG schema.
 
-* Really putting it all together
+# Really putting it all together
 
 Here's another simple example of getting some data out of the xCard document:
 
@@ -325,9 +325,9 @@ make this work. Next time...
 
 In the mean time, soiree can be found on [github](https://github.com/slyrus/soiree).
 
-* References
+# References
 
-** Libraries that made this all possible
+## Libraries that made this all possible
 
 1. [CXML](http://common-lisp.net/project/cxml/)
 
@@ -339,7 +339,7 @@ In the mean time, soiree can be found on [github](https://github.com/slyrus/soir
 
 6. [DRAKMA](http://weitz.de/drakma/)
 
-** Standards
+## Standards
 
 1. [VCARD](http://tools.ietf.org/html/rfc6350)
 
