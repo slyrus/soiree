@@ -258,9 +258,17 @@ by hand as above, we can do:
     (xpath:with-namespaces ((nil cl-vcard:*vcard-namespace*))
       (xpath:evaluate "string(/vcards/vcard/tel/*/text())" *baba*))
 
-Ignoring the with-namespaces macro invocation for a moment, we see a single line of code that gets us the information we want. Win! This is a very simple example, but the XPath language allows us to write much more interesting queries. There are two housekeeping matters we need to take care of first.
+Ignoring the with-namespaces macro invocation for a moment, we see a
+single line of code that gets us the information we want. Win! This is
+a very simple example, but the XPath language allows us to write much
+more interesting queries. There are two housekeeping matters we need
+to take care of first.
 
-First, let's make a macro to handle the namespace stuff. Plexippus is (rightfully) rather picky about making sure that XML element and attribute names are properly qualified. We can set the default namespace as above, but we'll do this in a macro in case we want to change this later:
+First, let's make a macro to handle the namespace stuff. Plexippus is
+(rightfully) rather picky about making sure that XML element and
+attribute names are properly qualified. We can set the default
+namespace as above, but we'll do this in a macro in case we want to
+change this later:
 
     (defmacro with-vcard-namespace (&body body)
       `(xpath:with-namespaces ((nil cl-vcard::*vcard-namespace*))
@@ -277,13 +285,16 @@ the API and for interactive development.
                   (xpath:map-node-set->list #'xpath:string-value result))
           (xpath:string-value result)))
 
-Now, back to XPath. If, for instance, I wanted to see the formatted names of every one in my family vcard database who has a photo in the database, I could do:
+Now, back to XPath. If, for instance, I wanted to see the formatted
+names of every one in my family vcard database who has a photo in the
+database, I could do:
 
     (join-xpath-result
      (with-vcard-namespace
        (xpath:evaluate "/vcards/vcard[count(photo)>0]/fn/text" *family*)))
 
-There's lots more one can do, but that should give you a flavor of how XPath can be used to effectively walk the document tree.
+There's lots more one can do, but that should give you a flavor of how
+XPath can be used to effectively walk the document tree.
 
 * Validation
 
@@ -296,9 +307,9 @@ xCard data -- even if there's never an xCard file per se:
     (stp:serialize *baba* (cxml-rng:make-validator *vcard-rng-schema*))
 
 Once we've got that the document in place we can validate it against
-the Relax NG schema. The VCARD -> xCard transformation may not be complete (which it
-isn't yet), but at least we know that the (so far tested) output is
-valid XML, that complies with the Relax NG schema.
+the Relax NG schema. The VCARD -> xCard transformation may not be
+complete (which it isn't yet), but at least we know that the (so far
+tested) output is valid XML, that complies with the Relax NG schema.
 
 * Really putting it all together
 
@@ -313,7 +324,9 @@ Here's another simple example of getting some data out of the xCard document:
 
     "Baba O'Riley is a Field Worker who works at Polydor Records and can be reached via e-mail at thewho@example.com"
 
-Of course we can write more interesting queries, make a proper front end to the data, write it back out, talk to an address book server, etc... but those exercises are left for the reader.
+Of course we can write more interesting queries, make a proper front
+end to the data, write it back out, talk to an address book server,
+etc... but those exercises are left for the reader.
 
 Wait a minute, did I say talk to a server?
 [DRAKMA](http://weitz.de/drakma/) would be perfect for that, but
