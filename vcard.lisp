@@ -17,6 +17,9 @@
 (defvar *vcard-rng-schema* (cxml-rng:parse-compact *vcard-rng-pathname*))
 
 (defparameter *current-vcard-version* nil)
+(defparameter *current-vcard-major-version-number* nil)
+
+(defparameter *default-major-version-number* 3)
 
 ;;; Section 4: Value Types
 
@@ -117,10 +120,12 @@
 ;; 5.6 type
 (defun param-type (params)
   (when-let (types
-             (mapcan #'second (keep "type" params :test #'string-equal :key #'car)))
+             (remove "pref"
+                     (mapcan #'second (keep "type" params :test #'string-equal :key #'car))
+                     :test #'string-equal))
     (reduce (lambda (parent type)
               (stp:append-child parent
-                                (make-text-node "text" type)))
+                                (make-text-node "text" (string-downcase type))))
             types :initial-value (stp:make-element "type" *vcard-namespace*))))
 
 ;; 5.7 mediatype
@@ -242,9 +247,51 @@
   "text" :multiple-values t)
 
 ;; 6.2.4 photo
-(def-generic-property photo "photo"
-  (list #'param-altid #'param-pid #'param-pref #'param-type #'param-mediatype)
-  "uri")
+(defun photo (result)
+  (destructuring-bind
+      (group name params value)
+      result
+    (declare (ignore group name))
+    (let ((node (cxml-stp:make-element "photo" *vcard-namespace*))
+          (param-element
+            (extract-parameters
+             params
+             (append (list #'param-altid #'param-pid #'param-pref)
+                     (when (>= *current-vcard-major-version-number* 4)
+                       (list #'param-mediatype)))))
+          (types (mapcan #'second
+                         (keep "type" params :test #'string-equal :key #'car))))
+      (when (cl:member "pref" types :test #'string-equal)
+        (stp:append-child param-element (make-pref-element)))
+      (if (equal (>= *current-vcard-major-version-number*) 4)
+          (when-let (types (reduce (lambda (types current-type)
+                                     (remove current-type types :test #'string-equal))
+                                   '("pref")
+                                   :initial-value types))
+            (let ((type-element (stp:make-element "type" *vcard-namespace*)))
+              (reduce
+               (lambda (parent child)
+                 (stp:append-child parent
+                                   (make-text-node "text" (string-downcase child))))
+               types
+               :initial-value type-element)
+              (stp:append-child param-element type-element)))
+          (when-let (types (reduce (lambda (types current-type)
+                                     (remove current-type types :test #'string-equal))
+                                   '("pref")
+                                   :initial-value types))
+            (let ((type-element (stp:make-element "mediatype" *vcard-namespace*)))
+              (reduce
+               (lambda (parent child)
+                 (stp:append-child parent
+                                   (make-text-node "text" (string-downcase child))))
+               types
+               :initial-value type-element)
+              (stp:append-child param-element type-element))))
+      
+      (when (plusp (cxml-stp:number-of-children param-element))
+        (cxml-stp:append-child node param-element))
+      (cxml-stp:append-child node (make-text-node "uri" value)))))
 
 ;; 6.2.5 bday
 ;; FIXME: we should support the various data elements, instead of just text
@@ -368,9 +415,31 @@
        (make-value-text value)))))
 
 ;; 6.4.2 email
-(def-generic-property email "email"
-  (list #'param-altid #'param-pid #'param-pref #'param-type)
-  "text")
+(defun email (result)
+  (destructuring-bind
+      (group name params value) result
+    (declare (ignore group name))
+    (let ((node (cxml-stp:make-element "email" *vcard-namespace*))
+          (param-element
+           (extract-parameters params
+                               (list #'param-altid #'param-pid #'param-pref)))
+          (types (mapcan #'second
+                         (keep "type" params :test #'string-equal :key #'car))))
+      (when-let (types (reduce (lambda (types current-type)
+                                 (remove current-type types :test #'string-equal))
+                               '("pref" "internet")
+                               :initial-value types))
+        (let ((type-element (stp:make-element "type" *vcard-namespace*)))
+          (reduce
+           (lambda (parent child)
+             (stp:append-child parent
+                               (make-text-node "text" (string-downcase child))))
+           types
+           :initial-value type-element)
+          (stp:append-child param-element type-element)))
+      (when (plusp (cxml-stp:number-of-children param-element))
+        (cxml-stp:append-child node param-element))
+      (cxml-stp:append-child node (make-text-node "text" value)))))
 
 ;; 6.4.3 impp
 (def-generic-property impp "impp"
@@ -481,6 +550,8 @@
   (destructuring-bind (group name params value) result
     (declare (ignore group name params))
     (setf *current-vcard-version* value)
+    (when-let (version (parse-string* (nat?) value))
+      (setf *current-vcard-major-version-number* version))
     nil))
 
 (defparameter *content-dispatch*
@@ -520,7 +591,8 @@
 
 (defun parse-vcard (str)
   (let ((*default-namespace* *vcard-namespace*)
-        (*current-vcard-version* nil))
+        (*current-vcard-version* nil)
+        (*current-vcard-major-version-number* *default-major-version-number*))
     (stp:make-document
      (reduce #'stp:append-child
              (parse-string* (many1? (vcard?)) str)
