@@ -12,12 +12,52 @@
 
 (defvar *ical-rng-schema* (cxml-rng:parse-compact *ical-rng-pathname*))
 
+;; Value type utility functions
+(defun digit-chars-to-number (chars)
+  (reduce (lambda (acc dig) (+ dig (* 10 acc))) chars :initial-value 0))
+
+(defun date? ()
+  (hook? (lambda (x)
+           (destructuring-bind (year-digits month-digits day-digits) x
+             (let ((year (digit-chars-to-number year-digits))
+                   (month (+ (* 10 (first month-digits)) (second month-digits)))
+                   (day (+ (* 10 (first day-digits)) (second month-digits))))
+               (list year month day))))
+         (seq-list? (times? (hook? #'digit-char-p (digit?)) 4)
+                    (times? (hook? #'digit-char-p (digit?)) 2)
+                    (times? (hook? #'digit-char-p (digit?)) 2))))
+
+(defun time? ()
+  (hook? (lambda (x)
+           (destructuring-bind (hour-digits minute-digits second-digits time-utc) x
+             (let ((hour (digit-chars-to-number hour-digits))
+                   (minute (+ (* 10 (first minute-digits)) (second minute-digits)))
+                   (second (+ (* 10 (first second-digits)) (second minute-digits))))
+               (list hour minute second time-utc))))
+         (seq-list? (times? (hook? #'digit-char-p (digit?)) 2)
+                    (times? (hook? #'digit-char-p (digit?)) 2)
+                    (times? (hook? #'digit-char-p (digit?)) 2)
+                    (opt? #\Z))))
+
+(defun convert-icalendar-date-time-to-xcal (string)
+  (parse-string*
+   (named-seq?
+    (<- date (date?))
+    #\T
+    (<- time (time?))
+    (list date time))
+   string))
+
 (defun make-date-time-node (element-tag string)
   (stp:append-child
    (stp:make-element (string-downcase element-tag) *ical-namespace*)
    (stp:append-child
     (stp:make-element "date-time" *ical-namespace*)
-    (stp:make-text string))))
+    (destructuring-bind ((year month day)
+                         (hours minute second utc))
+        (convert-icalendar-date-time-to-xcal string)
+      (stp:make-text (format nil "~2,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0D"
+                             year month day hours minute second))))))
 
 (defun date-time-node (result)
   (destructuring-bind (group name params value) result
@@ -42,6 +82,35 @@
     (declare (ignore group params))
     (make-cal-address-node (string-downcase name) value)))
 
+(defun add-params (param-list params)
+  (remove nil (mapcar (lambda (x) (funcall x params)) param-list) :test 'eq))
+
+(defun extract-parameters (params functions)
+  (let ((param-element (stp:make-element "parameters" *ical-namespace*)))
+    (let ((param-children (add-params functions params)))
+      (reduce #'stp:append-child param-children :initial-value param-element))))
+
+(defmacro def-generic-property (property-name element-name
+                                parameter-functions value-node-type
+                                &key multiple-values)
+  `(defun ,property-name (result)
+     (destructuring-bind (group name params value) result
+       (declare (ignore group name))
+       (let ((node (stp:make-element ,element-name *ical-namespace*))
+             (param-element (extract-parameters
+                             params
+                             ,parameter-functions)))
+         (when (plusp (stp:number-of-children param-element))
+           (stp:append-child node param-element))
+         ,(if multiple-values
+              `(reduce #'stp:append-child
+                       (apply #'make-text-node-list ,value-node-type
+                              (split-string value))
+                       :initial-value node)
+              `(stp:append-child
+                node
+                (make-text-node ,value-node-type value)))))))
+
 (defun attendee (result) (cal-address-node result))
 (defun class (result) (text-content result))
 (defun created (result) (text-content result))
@@ -59,6 +128,8 @@
 (defun status (result) (text-content result))
 (defun transp (result) (text-content result))
 (defun recurid (result) (text-content result))
+
+(def-generic-property uid "uid" nil "text")
 
 (defun vevent? ()
   (named-seq?
@@ -145,7 +216,7 @@
     (map nil (lambda (x)
                (setf (gethash (symbol-name x) hash) (symbol-function x)))
          '(dtstamp dtstart attendee class created description last-mod
-           location organizer priority seq status transp recurid))
+           location organizer priority seq status transp recurid uid))
     hash))
 
 (defun handle-content-line (result)
