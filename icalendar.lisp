@@ -39,6 +39,11 @@
                     (times? (hook? #'digit-char-p (digit?)) 2)
                     (opt? #\Z))))
 
+(defun convert-icalendar-date-to-xcal (string)
+  (parse-string*
+   (date?)
+   string))
+
 (defun convert-icalendar-date-time-to-xcal (string)
   (parse-string*
    (named-seq?
@@ -48,39 +53,29 @@
     (list date time))
    string))
 
-(defun make-date-time-node (element-tag string)
-  (stp:append-child
-   (stp:make-element (string-downcase element-tag) *ical-namespace*)
-   (stp:append-child
-    (stp:make-element "date-time" *ical-namespace*)
-    (destructuring-bind ((year month day)
-                         (hours minute second utc))
-        (convert-icalendar-date-time-to-xcal string)
-      (stp:make-text (format nil "~2,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0D"
-                             year month day hours minute second))))))
+;;; Parameters
+(defun param-fmttype (params)
+  (when-let (fmttypes
+             (mapcan #'second (keep "fmttype" params :test #'string-equal :key #'car)))
+    (reduce (lambda (parent fmttype)
+              (stp:append-child parent (make-text-node "text" fmttype)))
+            fmttypes
+            :initial-value (stp:make-element "fmttype" *ical-namespace*))))
 
-(defun date-time-node (result)
-  (destructuring-bind (group name params value) result
-    (declare (ignore group params))
-    (make-date-time-node name value)))
+(defun param-encoding (params)
+  (when-let (encodings
+             (mapcan #'second (keep "encoding" params :test #'string-equal :key #'car)))
+    (reduce (lambda (parent encoding)
+              (unless (member encoding '("8BIT" "BASE64") :test #'string=)
+                (warn "Unknown encoding parameter: ~A" encoding))
+              (stp:append-child parent (make-text-node "text" encoding)))
+            encodings
+            :initial-value (stp:make-element "fmttype" *ical-namespace*))))
 
-;;; FIXME!! dtstamp and dtstart (and friends?) need to convert from
-;;; icalendar style dates/times to xcal dates and times
-;;;
-(defun dtstamp (result) (date-time-node result))
-(defun dtstart (result) (date-time-node result))
 
-(defun make-cal-address-node (element-tag string)
-  (stp:append-child
-   (stp:make-element (string-downcase element-tag) *ical-namespace*)
-   (stp:append-child
-    (stp:make-element "cal-address" *ical-namespace*)
-    (stp:make-text string))))
+;;; Properties
 
-(defun cal-address-node (result)
-  (destructuring-bind (group name params value) result
-    (declare (ignore group params))
-    (make-cal-address-node (string-downcase name) value)))
+;; Property utility functions
 
 (defun add-params (param-list params)
   (remove nil (mapcar (lambda (x) (funcall x params)) param-list) :test 'eq))
@@ -111,6 +106,85 @@
                 node
                 (make-text-node ,value-node-type value)))))))
 
+;; 3.8.1 Descriptive Component Properties
+
+;; 3.8.1.1 Attachment
+(defun attach (result)
+  (destructuring-bind
+      (group name params value) result
+    (declare (ignore group name))
+    (let ((node (cxml-stp:make-element "attach" *ical-namespace*))
+          (param-element
+            (extract-parameters params
+                                (list #'param-fmttype #'param-encoding))))
+      (when (plusp (cxml-stp:number-of-children param-element))
+        (cxml-stp:append-child node param-element))
+      (let ((encoding
+              (or (caadar (keep "encoding" params :test #'string-equal :key #'car)))))
+        (cxml-stp:append-child
+         node
+         (cond ((string= encoding "BINARY")
+                (make-text-node "binary" value))
+               (encoding
+                (make-text-node "binary" (base64:base64-string-to-string value)))
+               (t
+                (make-text-node "uri" value))))))))
+
+;; 3.8.7 Change Management Component Properties
+
+(defun make-date-node (element-tag string)
+  (stp:append-child
+   (stp:make-element (string-downcase element-tag) *ical-namespace*)
+   (stp:append-child
+    (stp:make-element "date" *ical-namespace*)
+    (destructuring-bind (year month day)
+        (convert-icalendar-date-to-xcal string)
+      (stp:make-text (format nil "~2,'0D-~2,'0D-~2,'0D" year month day))))))
+
+(defun make-date-time-node (element-tag string)
+  (stp:append-child
+   (stp:make-element (string-downcase element-tag) *ical-namespace*)
+   (stp:append-child
+    (stp:make-element "date-time" *ical-namespace*)
+    (destructuring-bind ((year month day)
+                         (hours minute second utc))
+        (convert-icalendar-date-time-to-xcal string)
+      (stp:make-text (format nil "~2,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0D"
+                             year month day hours minute second))))))
+
+;; FIXME! Add tz support here!
+(defun date-time-node (result)
+  (destructuring-bind (group name params value) result
+    (declare (ignore group params))
+    (make-date-time-node name value)))
+
+;; FIXME! Add tz support here!
+(defun date-time-or-date-node (result)
+  (destructuring-bind (group name params value) result
+    (declare (ignore group))
+    (let ((value-type
+            (or (caadar (keep "value" params :test #'string-equal :key #'car)))))
+      (cond ((string-equal value-type "DATE")
+             (make-date-node name value))
+            (t
+             (make-date-time-node name value))))))
+
+(defun dtstamp (result) (date-time-node result))
+(defun dtstart (result) (date-time-or-date-node result))
+(defun dtend (result) (date-time-or-date-node result))
+
+(defun make-cal-address-node (element-tag string)
+  (stp:append-child
+   (stp:make-element (string-downcase element-tag) *ical-namespace*)
+   (stp:append-child
+    (stp:make-element "cal-address" *ical-namespace*)
+    (stp:make-text string))))
+
+(defun cal-address-node (result)
+  (destructuring-bind (group name params value) result
+    (declare (ignore group params))
+    (make-cal-address-node (string-downcase name) value)))
+
 (defun attendee (result) (cal-address-node result))
 (defun class (result) (text-content result))
 (defun created (result) (text-content result))
@@ -131,6 +205,34 @@
 
 (def-generic-property uid "uid" nil "text")
 
+;; 3.6.1 Event Component
+(defparameter *vevent-content-dispatch*
+  (let ((hash (make-hash-table :test 'equal)))
+    (map nil (lambda (x)
+               (setf (gethash (symbol-name x) hash) (symbol-function x)))
+         '(dtstamp dtstart uid
+           class created description 
+           #+nil geo 
+           last-mod location organizer
+           priority seq
+           #+nil status-event
+           transp
+           #+nil url
+           recurid 
+
+           #+nil rrule
+
+           dtend 
+           #+nil duration
+           attendee))
+    hash))
+
+(defun handle-vevent-content-line (result)
+  (destructuring-bind (group name params value) result
+       (declare (ignore group params value))
+    (let ((fn (gethash (string-upcase name) *vevent-content-dispatch*)))
+      (when fn (funcall fn result)))))
+
 (defun vevent? ()
   (named-seq?
    "BEGIN" ":" "VEVENT" #\Return #\Newline
@@ -138,13 +240,17 @@
    "END" ":" "VEVENT" #\Return #\Newline
    (stp:append-child
     (stp:make-element "vevent" *ical-namespace*)
-    (reduce (lambda (element x)
-              (let ((x (handle-content-line x)))
-                (if (and x (not (consp x)))
-                    (stp:append-child element x)
-                    element)))
-            content
-            :initial-value (stp:make-element "properties" *ical-namespace*)))))
+    (let ((vevent
+            (reduce (lambda (element x)
+                      (let ((x (handle-vevent-content-line x)))
+                        (if (and x (not (consp x)))
+                            (stp:append-child element x)
+                            element)))
+                    content
+                    :initial-value
+                    (stp:make-element "properties" *ical-namespace*))))
+      ;; FIXME! We should create DTSTAMP and UID if they don't exist here!
+      vevent))))
 
 (defun vtodo? ()
   (named-seq?
@@ -215,7 +321,7 @@
   (let ((hash (make-hash-table :test 'equal)))
     (map nil (lambda (x)
                (setf (gethash (symbol-name x) hash) (symbol-function x)))
-         '(dtstamp dtstart attendee class created description last-mod
+         '(dtstamp dtstart dtend attendee class created description last-mod
            location organizer priority seq status transp recurid uid))
     hash))
 
