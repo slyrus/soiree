@@ -140,6 +140,50 @@
   (list #'param-language) "text"
   :multiple-values t)
 
+;; 3.8.1.3 Classification
+(def-generic-property class "class" nil "text")
+
+;; 3.8.1.4 Comment
+(def-generic-property comment "comment" (list #'param-language) "text")
+
+;; 3.8.1.5 Description
+(def-generic-property description "description" (list #'param-language) "text")
+
+;; 3.8.1.6 Geographic Position
+(defun decimal? ()
+  (named-seq?
+   (<- int-part (int?))
+   (<- frac-part
+       (opt?
+        (named-seq?
+         #\.
+         (<- frac-part (many? (hook? #'digit-char-p (digit?))))
+         frac-part)))
+   (+ int-part (or (when frac-part
+                         (* (signum int-part)
+                            (/ (digit-chars-to-number frac-part)
+                               (float (expt 10 (length frac-part))))))
+                   0))))
+
+(defun geo (result)
+  (destructuring-bind
+      (group name params value)
+      result
+    (declare (ignore group name params))
+    (let ((node (cxml-stp:make-element "geo" *ical-namespace*)))
+      (destructuring-bind (lat long)
+          (parse-string*
+           (named-seq?
+            (<- lat (decimal?))
+            #\;
+            (<- long (decimal?))
+            (list lat long))
+           value)
+        (reduce #'cxml-stp:append-child 
+                (list (make-text-node "latitude" (prin1-to-string lat))
+                      (make-text-node "longitude" (prin1-to-string long)))
+                :initial-value node)))))
+
 ;; 3.8.7 Change Management Component Properties
 
 (defun make-date-node (element-tag string)
@@ -196,9 +240,7 @@
     (make-cal-address-node (string-downcase name) value)))
 
 (defun attendee (result) (cal-address-node result))
-(defun class (result) (text-content result))
 (defun created (result) (text-content result))
-(defun description (result) (text-content result))
 (defun last-mod (result) (text-content result))
 (defun location (result) (text-content result))
 
@@ -222,7 +264,7 @@
                (setf (gethash (symbol-name x) hash) (symbol-function x)))
          '(dtstamp dtstart uid
            class created description 
-           #+nil geo 
+           geo 
            last-mod location organizer
            priority seq
            #+nil status-event
