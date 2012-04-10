@@ -127,6 +127,45 @@
 ;; 3.2.10 Language
 (def-generic-parameter languageparam "language" :node-type "text")
 
+;; 3.2.11 Group or List Membership
+(def-generic-parameter memberparam "member" :node-type "cal-address")
+
+;; 3.2.12 FIXME TODO Participation Status
+
+;; 3.2.13 Recurrence Identifier Range
+(def-generic-parameter rangeparam "range"
+  :node-type "text"
+  :allowed-values '("THISANDFUTURE"))
+
+;; 3.2.14 Alarm Trigger Relationship
+(def-generic-parameter trigrelparam "related"
+  :node-type "text"
+  :allowed-values '("START" "END"))
+
+;; 3.2.15 Relationship Type
+(def-generic-parameter reltypeparam "reltype"
+  :node-type "text"
+  :allowed-values '("PARENT"
+                    "CHILD"
+                    "SIBLING"))
+
+;; 3.2.16 Participation Role
+(def-generic-parameter roleparam "role"
+  :node-type "text"
+  :allowed-values '("CHAIR"
+                    "REQ-PARTICIPANT"
+                    "OPT-PARTICIPANT"
+                    "NON-PARTICIPANT"))
+;; 3.2.17 RSVP Expectation
+(def-generic-parameter rsvpparam "rsvp" :node-type "boolean")
+
+;; 3.2.18 Sent By
+(def-generic-parameter sentbyparam "sentby" :node-type "cal-address")
+
+;; 3.2.19 Time Zone Identifier
+(def-generic-parameter tzidparam "tzid" :node-type "text")
+
+
 ;;; Properties
 
 ;; Property utility functions
