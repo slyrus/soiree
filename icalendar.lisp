@@ -69,11 +69,16 @@
 
 ;;; Parameters
 
-(defmacro def-generic-parameter (function-name param-name &key (node-type "text"))
+(defmacro def-generic-parameter (function-name param-name
+                                 &key (node-type "text")
+                                      allowed-values)
   `(defun ,function-name (params)
      (when-let (param-values
                 (mapcan #'second (keep ,param-name params :test #'string-equal :key #'car)))
        (reduce (lambda (parent param-value)
+                 (when ,allowed-values
+                   (unless (member param-value ,allowed-values :test #'string=)
+                     (warn "Unknown encoding ~A parameter: ~A" ,param-name param-value)))
                  (stp:append-child parent (make-text-node ,node-type param-value)))
                param-values
                :initial-value (stp:make-element ,param-name *ical-namespace*)))))
@@ -82,32 +87,45 @@
 ;; 3.2.1 Alternate Text Representation
 (def-generic-parameter altrepparam "altrep" :node-type "uri")
 
+;; 3.2.2 Common Name
+(def-generic-parameter cnparam "cn" :node-type "text")
+
+;; 3.2.3 Calendar User Type
+(def-generic-parameter cutypeparam "cutype"
+  :node-type "text"
+  :allowed-values '("INDIVIDUAL" 
+                    "GROUP" 
+                    "RESOURCE"
+                    "ROOM"
+                    "UNKNOWN"))
+
+;; 3.2.4 Delegators
+(def-generic-parameter delfromparam "delegated-from" :node-type "cal-address")
+
+;; 3.2.5 Delegatees
+(def-generic-parameter deltoparam "delegated-to" :node-type "cal-address")
+
+;; 3.2.6 
+(def-generic-parameter dirparam "dir" :node-type "uri")
+
 ;; 3.2.7 Inline Encoding
-(defun encodingparam (params)
-  (when-let (encodings
-             (mapcan #'second (keep "encoding" params :test #'string-equal :key #'car)))
-    (reduce (lambda (parent encoding)
-              (unless (member encoding '("8BIT" "BASE64") :test #'string=)
-                (warn "Unknown encoding parameter: ~A" encoding))
-              (stp:append-child parent (make-text-node "text" encoding)))
-            encodings
-            :initial-value (stp:make-element "encoding" *ical-namespace*))))
+(def-generic-parameter encodingparam "encoding"
+  :node-type "text"
+  :allowed-values '("8BIT" "BASE64"))
 
 ;; 3.2.8 Format Type
-(defun fmttypeparam (params)
-  (when-let (fmttypes
-             (mapcan #'second (keep "fmttype" params :test #'string-equal :key #'car)))
-    (reduce (lambda (parent fmttype)
-              (stp:append-child parent (make-text-node "text" fmttype)))
-            fmttypes
-            :initial-value (stp:make-element "fmttype" *ical-namespace*))))
+(def-generic-parameter fmttypeparam "fmttype" :node-type "text")
 
+;; 3.2.9 Free/Busy Time Type
+(def-generic-parameter fbtypeparam "fbtype"
+  :node-type "text"
+  :allowed-values '("FREE" 
+                    "BUSY" 
+                    "BUSY-UNAVAILABLE" 
+                    "BUSY-TENTATIVE"))
+ 
 ;; 3.2.10 Language
-(defun languageparam (params)
-  (when-let (language
-             (caadar (keep "language" params :test #'string-equal :key #'car)))
-    (stp:append-child (stp:make-element "language" *ical-namespace*)
-                      (make-text-node "text" language))))
+(def-generic-parameter languageparam "language" :node-type "text")
 
 ;;; Properties
 
