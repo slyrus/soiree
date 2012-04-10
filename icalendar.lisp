@@ -16,6 +16,20 @@
 (defun digits-to-number (chars)
   (reduce (lambda (acc dig) (+ dig (* 10 acc))) chars :initial-value 0))
 
+(defun decimal? ()
+  (named-seq?
+   (<- int-part (int?))
+   (<- frac-part
+       (opt?
+        (named-seq?
+         #\.
+         (<- frac-part (many? (hook? #'digit-char-p (digit?))))
+         frac-part)))
+   (+ int-part (or (when frac-part
+                     (* (signum int-part)
+                        (/ (digits-to-number frac-part)
+                           (float (expt 10 (length frac-part))))))
+                   0))))
 (defun date? ()
   (hook? (lambda (x)
            (destructuring-bind (year-digits month-digits day-digits) x
@@ -54,15 +68,22 @@
    string))
 
 ;;; Parameters
-(defun param-fmttype (params)
-  (when-let (fmttypes
-             (mapcan #'second (keep "fmttype" params :test #'string-equal :key #'car)))
-    (reduce (lambda (parent fmttype)
-              (stp:append-child parent (make-text-node "text" fmttype)))
-            fmttypes
-            :initial-value (stp:make-element "fmttype" *ical-namespace*))))
 
-(defun param-encoding (params)
+(defmacro def-generic-parameter (function-name param-name &key (node-type "text"))
+  `(defun ,function-name (params)
+     (when-let (param-values
+                (mapcan #'second (keep ,param-name params :test #'string-equal :key #'car)))
+       (reduce (lambda (parent param-value)
+                 (stp:append-child parent (make-text-node ,node-type param-value)))
+               param-values
+               :initial-value (stp:make-element ,param-name *ical-namespace*)))))
+
+
+;; 3.2.1 Alternate Text Representation
+(def-generic-parameter altrepparam "altrep" :node-type "uri")
+
+;; 3.2.7 Inline Encoding
+(defun encodingparam (params)
   (when-let (encodings
              (mapcan #'second (keep "encoding" params :test #'string-equal :key #'car)))
     (reduce (lambda (parent encoding)
@@ -70,9 +91,19 @@
                 (warn "Unknown encoding parameter: ~A" encoding))
               (stp:append-child parent (make-text-node "text" encoding)))
             encodings
+            :initial-value (stp:make-element "encoding" *ical-namespace*))))
+
+;; 3.2.8 Format Type
+(defun fmttypeparam (params)
+  (when-let (fmttypes
+             (mapcan #'second (keep "fmttype" params :test #'string-equal :key #'car)))
+    (reduce (lambda (parent fmttype)
+              (stp:append-child parent (make-text-node "text" fmttype)))
+            fmttypes
             :initial-value (stp:make-element "fmttype" *ical-namespace*))))
 
-(defun param-language (params)
+;; 3.2.10 Language
+(defun languageparam (params)
   (when-let (language
              (caadar (keep "language" params :test #'string-equal :key #'car)))
     (stp:append-child (stp:make-element "language" *ical-namespace*)
@@ -121,7 +152,7 @@
     (let ((node (cxml-stp:make-element "attach" *ical-namespace*))
           (param-element
             (extract-parameters params
-                                (list #'param-fmttype #'param-encoding))))
+                                (list #'fmttypeparam #'encodingparam))))
       (when (plusp (cxml-stp:number-of-children param-element))
         (cxml-stp:append-child node param-element))
       (let ((encoding
@@ -137,34 +168,21 @@
 
 ;; 3.8.1.2 Categories
 (def-generic-property categories "categories"
-  (list #'param-language) "text"
+  (list #'languageparam) "text"
   :multiple-values t)
 
 ;; 3.8.1.3 Classification
 (def-generic-property class "class" nil "text")
 
 ;; 3.8.1.4 Comment
-(def-generic-property comment "comment" (list #'param-language) "text")
+(def-generic-property comment "comment"
+  (list #'altrepparam #'languageparam) "text")
 
 ;; 3.8.1.5 Description
-(def-generic-property description "description" (list #'param-language) "text")
+(def-generic-property description "description"
+  (list #'altrepparam #'languageparam) "text")
 
 ;; 3.8.1.6 Geographic Position
-(defun decimal? ()
-  (named-seq?
-   (<- int-part (int?))
-   (<- frac-part
-       (opt?
-        (named-seq?
-         #\.
-         (<- frac-part (many? (hook? #'digit-char-p (digit?))))
-         frac-part)))
-   (+ int-part (or (when frac-part
-                     (* (signum int-part)
-                        (/ (digits-to-number frac-part)
-                           (float (expt 10 (length frac-part))))))
-                   0))))
-
 (defun geo (result)
   (destructuring-bind
       (group name params value)
@@ -183,6 +201,11 @@
                 (list (make-text-node "latitude" (prin1-to-string lat))
                       (make-text-node "longitude" (prin1-to-string long)))
                 :initial-value node)))))
+
+;; 3.8.1.7 Location
+(def-generic-property location "location"
+  (list #'altrepparam #'languageparam) "text")
+
 
 ;; 3.8.7 Change Management Component Properties
 
@@ -242,7 +265,6 @@
 (defun attendee (result) (cal-address-node result))
 (defun created (result) (text-content result))
 (defun last-mod (result) (text-content result))
-(defun location (result) (text-content result))
 
 (defun organizer (result)
   (destructuring-bind (group name params value) result
