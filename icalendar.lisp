@@ -72,6 +72,11 @@
             encodings
             :initial-value (stp:make-element "fmttype" *ical-namespace*))))
 
+(defun param-language (params)
+  (when-let (language
+             (caadar (keep "language" params :test #'string-equal :key #'car)))
+    (stp:append-child (stp:make-element "language" *ical-namespace*)
+                      (make-text-node "text" language))))
 
 ;;; Properties
 
@@ -129,6 +134,11 @@
                 (make-text-node "binary" (base64:base64-string-to-string value)))
                (t
                 (make-text-node "uri" value))))))))
+
+;; 3.8.1.2 Categories
+(def-generic-property categories "categories"
+  (list #'param-language) "text"
+  :multiple-values t)
 
 ;; 3.8.7 Change Management Component Properties
 
@@ -224,7 +234,9 @@
 
            dtend 
            #+nil duration
-           attendee))
+           attach
+           attendee
+           categories))
     hash))
 
 (defun handle-vevent-content-line (result)
