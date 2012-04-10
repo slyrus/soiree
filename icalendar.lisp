@@ -13,13 +13,13 @@
 (defvar *ical-rng-schema* (cxml-rng:parse-compact *ical-rng-pathname*))
 
 ;; Value type utility functions
-(defun digit-chars-to-number (chars)
+(defun digits-to-number (chars)
   (reduce (lambda (acc dig) (+ dig (* 10 acc))) chars :initial-value 0))
 
 (defun date? ()
   (hook? (lambda (x)
            (destructuring-bind (year-digits month-digits day-digits) x
-             (let ((year (digit-chars-to-number year-digits))
+             (let ((year (digits-to-number year-digits))
                    (month (+ (* 10 (first month-digits)) (second month-digits)))
                    (day (+ (* 10 (first day-digits)) (second month-digits))))
                (list year month day))))
@@ -30,7 +30,7 @@
 (defun time? ()
   (hook? (lambda (x)
            (destructuring-bind (hour-digits minute-digits second-digits time-utc) x
-             (let ((hour (digit-chars-to-number hour-digits))
+             (let ((hour (digits-to-number hour-digits))
                    (minute (+ (* 10 (first minute-digits)) (second minute-digits)))
                    (second (+ (* 10 (first second-digits)) (second minute-digits))))
                (list hour minute second time-utc))))
@@ -160,9 +160,9 @@
          (<- frac-part (many? (hook? #'digit-char-p (digit?))))
          frac-part)))
    (+ int-part (or (when frac-part
-                         (* (signum int-part)
-                            (/ (digit-chars-to-number frac-part)
-                               (float (expt 10 (length frac-part))))))
+                     (* (signum int-part)
+                        (/ (digits-to-number frac-part)
+                           (float (expt 10 (length frac-part))))))
                    0))))
 
 (defun geo (result)
