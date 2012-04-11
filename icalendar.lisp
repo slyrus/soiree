@@ -160,10 +160,87 @@
 (def-generic-parameter rsvpparam "rsvp" :node-type "boolean")
 
 ;; 3.2.18 Sent By
-(def-generic-parameter sentbyparam "sentby" :node-type "cal-address")
+(def-generic-parameter sentbyparam "sent-by" :node-type "cal-address")
 
 ;; 3.2.19 Time Zone Identifier
 (def-generic-parameter tzidparam "tzid" :node-type "text")
+
+
+;; 3.6 Calendar Components
+
+;; FIXME these next two should get moved down to the properties section!
+(defun calscale (result) (text-content result))
+(defun method (result) (text-content result))
+
+;; FIXME flesh out calprop support
+(defun calprop? ()
+  (content-line?))
+
+(defun component? ()
+  (choices (vevent?)
+           (vtodo?) 
+           (vjournal?)
+           (vfreebusy?)
+           (vtimezone?)))
+
+;; 3.6.1 Event Component
+(defparameter *vevent-content-dispatch*
+  (let ((hash (make-hash-table :test 'equal)))
+    (map nil (lambda (x)
+               (setf (gethash (car x) hash) (cdr x)))
+         '((dtstamp . property-dtstamp)
+           (dtstart . property-dtstart)
+           (uid . property-uid)
+           (class .  property-class)
+           (created . property-created)
+           (description . property-description) 
+           (geo . property-geo) 
+           (last-mod . last-mod)
+           (location . property-location)
+           (organizer . organizer)
+           (priority . property-priority)
+           (seq . seq)
+
+           #+nil status-event
+           (transp . transp)
+           #+nil url
+           (recurid . recurid) 
+
+           #+nil rrule
+           
+           (dtend . property-dtend) 
+           #+nil duration
+           (attach . attach)
+           (attendee . attendee)
+           (categories . categories)))
+    hash))
+
+(defun handle-vevent-content-line (result)
+  (destructuring-bind (group name params value) result
+       (declare (ignore group params value))
+    (let ((fn (gethash (intern (string-upcase name) :soiree-icalendar)
+                       *vevent-content-dispatch*)))
+      (when fn
+        (funcall fn result)))))
+
+(defun vevent? ()
+  (named-seq?
+   "BEGIN" ":" "VEVENT" #\Return #\Newline
+   (<- content (many? (content-line?)))
+   "END" ":" "VEVENT" #\Return #\Newline
+   (stp:append-child
+    (stp:make-element "vevent" *ical-namespace*)
+    (let ((vevent
+            (reduce (lambda (element x)
+                      (let ((x (handle-vevent-content-line x)))
+                        (if (and x (not (consp x)))
+                            (stp:append-child element x)
+                            element)))
+                    content
+                    :initial-value
+                    (stp:make-element "properties" *ical-namespace*))))
+      ;; FIXME! We should create DTSTAMP and UID if they don't exist here!
+      vevent))))
 
 
 ;;; Properties
@@ -178,9 +255,11 @@
     (let ((param-children (add-params functions params)))
       (reduce #'stp:append-child param-children :initial-value param-element))))
 
+;; FIXME!!! Check :allowed-values
 (defmacro def-generic-property (property-name element-name
                                 parameter-functions value-node-type
-                                &key multiple-values)
+                                &key multiple-values allowed-values)
+  (declare (ignore allowed-values))
   `(defun ,property-name (result)
      (destructuring-bind (group name params value) result
        (declare (ignore group name))
@@ -225,22 +304,22 @@
 
 ;; 3.8.1.2 Categories
 (def-generic-property categories "categories"
-  (list #'languageparam) "text"
+  '(languageparam) "text"
   :multiple-values t)
 
 ;; 3.8.1.3 Classification
-(def-generic-property class "class" nil "text")
+(def-generic-property property-class "class" nil "text")
 
 ;; 3.8.1.4 Comment
-(def-generic-property comment "comment"
-  (list #'altrepparam #'languageparam) "text")
+(def-generic-property property-comment "comment"
+  '(altrepparam languageparam) "text")
 
 ;; 3.8.1.5 Description
-(def-generic-property description "description"
-  (list #'altrepparam #'languageparam) "text")
+(def-generic-property property-description "description"
+  '(altrepparam languageparam) "text")
 
 ;; 3.8.1.6 Geographic Position
-(defun geo (result)
+(defun property-geo (result)
   (destructuring-bind
       (group name params value)
       result
@@ -260,12 +339,43 @@
                 :initial-value node)))))
 
 ;; 3.8.1.7 Location
-(def-generic-property location "location"
-  (list #'altrepparam #'languageparam) "text")
+(def-generic-property property-location "location"
+  '(altrepparam languageparam) "text")
 
+;; 3.8.1.8 Percent Complete
+(def-generic-property property-percent "percent-complete" nil "integer")
 
-;; 3.8.7 Change Management Component Properties
+;; 3.8.1.9 Priority
+(def-generic-property property-priority "priority" nil "integer")
 
+;; 3.8.1.10 Resources
+(def-generic-property property-resources "resources"
+  '(altrepparam languageparam) "text")
+
+;; 3.8.1.11 Status
+(def-generic-property property-status-event "status"
+  nil "text" :allowed-values '("TENTATIVE"
+                               "CONFIRMED"
+                               "CANCELLED"))
+
+(def-generic-property property-status-todo "status"
+  nil "text" :allowed-values '("NEEDS-ACTION"
+                               "COMPLETED"
+                               "IN-PROCESS"
+                               "CANCELLED"))
+
+(def-generic-property property-status-jour "status"
+  nil "text" :allowed-values '("DRAFT"
+                               "FINAL" 
+                               "CANCELLED"))
+
+;; 3.8.1.12 Summary
+(def-generic-property property-summary "summary"
+  '(altrepparam languageparam) "text")
+
+;; 3.8.2 Date and Time Component Properties
+
+;;; Support Functions
 (defun make-date-node (element-tag string)
   (stp:append-child
    (stp:make-element (string-downcase element-tag) *ical-namespace*)
@@ -303,9 +413,72 @@
             (t
              (make-date-time-node name value))))))
 
-(defun dtstamp (result) (date-time-node result))
-(defun dtstart (result) (date-time-or-date-node result))
-(defun dtend (result) (date-time-or-date-node result))
+
+;; 3.8.2.1 Completed
+(defun property-completed (result) (date-time-node result))
+
+;; 3.8.2.2 Date/Time End
+(defun property-dtend (result) (date-time-or-date-node result))
+
+;; 3.8.2.3 Ddate/Time Due
+(defun property-due (result) (date-time-or-date-node result))
+
+;; 3.8.2.4 Date/Time Start
+(defun property-dtstart (result) (date-time-or-date-node result))
+
+;; 3.8.2.5 Duration FIXME!!!
+#+nil (defun property-duration (result) (date-time-or-date-node result))
+
+;; 3.8.2.6 Free/Busy Time FIXME!!!
+
+;; 3.8.2.7 Time Transparency
+(def-generic-property property-transp "transp" nil "text"
+  :allowed-values '("OPAQUE"
+                    "TRANSPARENT"))
+
+;; 3.8.3 Time Zone Component Properties
+
+;; 3.8.3.1 Time Zone Identifier
+(def-generic-property property-tzid "tzid" nil "text")
+
+;; 3.8.3.2 Time Zone Name
+(def-generic-property property-tzname "tzname" '(language-param) "text")
+
+;; 3.8.3.3 Time Zone Offset From
+(def-generic-property property-tzoffsetfrom "tzoffsetfrom" nil "utc-offset")
+
+;; 3.8.3.4 Time Zone Offset To
+(def-generic-property property-tzoffsetto "tzoffsetto" nil "utc-offset")
+
+;; 3.8.3.5 Time Zone URL
+(def-generic-property property-tzurl "tzurl" nil "text")
+
+;; 3.8.4 Relationship Component Properties
+
+;; 3.8.4.1 Attendee
+(def-generic-property property-atendee "atendee"
+  '(cutypeparam
+    memberparam
+    roleparam
+    ;; FIXME!!!
+    #+nil partstatparam
+    rsvpparam
+    deltoparam
+    delfromparam
+    sentbyparam
+    cnparam
+    dirparam
+    languageparam)
+  "cal-address")
+
+;; 3.8.7 Change Management Component Properties
+
+;; 3.8.7.1 Date/Time Created
+(defun property-created (result) (text-content result))
+
+;; 3.8.7.2 Date/Time Stamp
+(defun property-dtstamp (result)
+  (date-time-node result))
 
 (defun make-cal-address-node (element-tag string)
   (stp:append-child
@@ -319,8 +492,6 @@
     (declare (ignore group params))
     (make-cal-address-node (string-downcase name) value)))
 
-(defun attendee (result) (cal-address-node result))
-(defun created (result) (text-content result))
 (defun last-mod (result) (text-content result))
 
 (defun organizer (result)
@@ -328,62 +499,10 @@
     (declare (ignore group params))
     (make-cal-address-node name value)))
 
-(defun priority (result) (text-content result))
 (defun seq (result) (text-content result))
-(defun status (result) (text-content result))
-(defun transp (result) (text-content result))
 (defun recurid (result) (text-content result))
 
-(def-generic-property uid "uid" nil "text")
-
-;; 3.6.1 Event Component
-(defparameter *vevent-content-dispatch*
-  (let ((hash (make-hash-table :test 'equal)))
-    (map nil (lambda (x)
-               (setf (gethash (symbol-name x) hash) (symbol-function x)))
-         '(dtstamp dtstart uid
-           class created description 
-           geo 
-           last-mod location organizer
-           priority seq
-           #+nil status-event
-           transp
-           #+nil url
-           recurid 
-
-           #+nil rrule
-
-           dtend 
-           #+nil duration
-           attach
-           attendee
-           categories))
-    hash))
-
-(defun handle-vevent-content-line (result)
-  (destructuring-bind (group name params value) result
-       (declare (ignore group params value))
-    (let ((fn (gethash (string-upcase name) *vevent-content-dispatch*)))
-      (when fn (funcall fn result)))))
-
-(defun vevent? ()
-  (named-seq?
-   "BEGIN" ":" "VEVENT" #\Return #\Newline
-   (<- content (many? (content-line?)))
-   "END" ":" "VEVENT" #\Return #\Newline
-   (stp:append-child
-    (stp:make-element "vevent" *ical-namespace*)
-    (let ((vevent
-            (reduce (lambda (element x)
-                      (let ((x (handle-vevent-content-line x)))
-                        (if (and x (not (consp x)))
-                            (stp:append-child element x)
-                            element)))
-                    content
-                    :initial-value
-                    (stp:make-element "properties" *ical-namespace*))))
-      ;; FIXME! We should create DTSTAMP and UID if they don't exist here!
-      vevent))))
+(def-generic-property property-uid "uid" nil "text")
 
 (defun vtodo? ()
   (named-seq?
@@ -437,25 +556,15 @@
            content
            :initial-value (stp:make-element "vtimezone" *ical-namespace*))))
 
-(defun component? ()
-  (choices (vevent?)
-           (vtodo?) 
-           (vjournal?)
-           (vfreebusy?)
-           (vtimezone?)))
-
-(defun calscale (result) (text-content result))
-(defun method (result) (text-content result))
-
-(defun calprop? ()
-  (content-line?))
-
 (defparameter *content-dispatch*
   (let ((hash (make-hash-table :test 'equal)))
     (map nil (lambda (x)
-               (setf (gethash (symbol-name x) hash) (symbol-function x)))
-         '(dtstamp dtstart dtend attendee class created description last-mod
-           location organizer priority seq status transp recurid uid))
+               (setf (gethash (symbol-name x) hash) x))
+         '(property-dtstamp property-dtstart property-dtend
+           attendee property-class property-created
+           property-description last-mod
+           location organizer property-priority
+           seq transp recurid property-uid))
     hash))
 
 (defun handle-content-line (result)
