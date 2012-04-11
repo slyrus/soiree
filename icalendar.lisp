@@ -191,28 +191,34 @@
          '((dtstamp . property-dtstamp)
            (dtstart . property-dtstart)
            (uid . property-uid)
+
            (class .  property-class)
            (created . property-created)
            (description . property-description) 
            (geo . property-geo) 
-           (last-mod . last-mod)
+           (last-mod . property-last-mod)
            (location . property-location)
-           (organizer . organizer)
+           (organizer . property-organizer)
            (priority . property-priority)
-           (seq . seq)
-
+           (seq . property-seq)
            #+nil status-event
-           (transp . transp)
-           #+nil url
-           (recurid . recurid) 
-
+           (summary . property-summary)
+           (transp . property-transp)
+           (url . property-url)
+           #+il (recurid . recurid) 
            #+nil rrule
-           
            (dtend . property-dtend) 
            #+nil duration
-           (attach . attach)
-           (attendee . attendee)
-           (categories . categories)))
+           (attach . property-attach)
+           (attendee . property-attendee)
+           (categories . property-categories)
+           (comment . property-comment)
+           (contact . property-contact)
+           #+nil exdate
+           #+nil rstatus
+           (related . property-related)
+           (resources . property-resources])
+           #+nil rdate))
     hash))
 
 (defun handle-vevent-content-line (result)
@@ -281,7 +287,7 @@
 ;; 3.8.1 Descriptive Component Properties
 
 ;; 3.8.1.1 Attachment
-(defun attach (result)
+(defun property-attach (result)
   (destructuring-bind
       (group name params value) result
     (declare (ignore group name))
@@ -303,7 +309,7 @@
                 (make-text-node "uri" value))))))))
 
 ;; 3.8.1.2 Categories
-(def-generic-property categories "categories"
+(def-generic-property property-categories "categories"
   '(languageparam) "text"
   :multiple-values t)
 
@@ -456,7 +462,7 @@
 ;; 3.8.4 Relationship Component Properties
 
 ;; 3.8.4.1 Attendee
-(def-generic-property property-atendee "atendee"
+(def-generic-property property-attendee "attendee"
   '(cutypeparam
     memberparam
     roleparam
@@ -471,14 +477,68 @@
     languageparam)
   "cal-address")
 
+;; 3.8.4.2 Contact
+(def-generic-property property-contact "contact"
+  '(altrepparam
+    languageparam)
+  "cal-address")
+
+;; 3.8.4.3 Organzizer
+(def-generic-property property-organizer "organizer"
+  '(cnparam
+    dirparam
+    sentbyparam
+    languageparam)
+  "cal-address")
+
+;; 3.8.4.4 Recurrence ID
+;; FIXME!!! This needs help.
+#+nil (defun property-recurid (result) (date-time-or-date-node result))
+
+;; 3.8.4.5 Related-To
+(def-generic-property property-related "related-to"
+  '(reltypeparam)
+  "text")
+
+;; 3.8.4.6 Uniform Resource Locator
+(def-generic-property property-url "url" nil "uri")
+
+;; 3.8.4.7 Unique Identifier
+(def-generic-property property-uid "uid" nil "text")
+
+;; 3.8.5 Recurrence Component Properties
+
+;; 3.8.5.1 Exception Date/Times TBD
+;; 3.8.5.2 Recurrence Date/Times TBD
+;; 3.8.5.3 Recurrence Rule TBD
+
+;; 3.8.6 Alarm Component Properties
+
+;; 3.8.6.1 Action
+(def-generic-property property-action "action" nil "text"
+  :allowed-values '("AUDIO"
+                    "DISPLAY"
+                    "EMAIL"))
+;; 3.8.6.2 Repeat Count
+(def-generic-property property-repeat "repeat" nil "integer")
+
+;; 3.8.6.3 Trigger TBD
+
+
 ;; 3.8.7 Change Management Component Properties
 
 ;; 3.8.7.1 Date/Time Created
-(defun property-created (result) (text-content result))
+(defun property-created (result) (date-time-node result))
 
 ;; 3.8.7.2 Date/Time Stamp
-(defun property-dtstamp (result)
-  (date-time-node result))
+(defun property-dtstamp (result) (date-time-node result))
+
+;; 3.8.7.3 Last Modified
+(defun property-last-mod (result) (date-time-node result))
+
+;; 3.8.7.4 Sequence Number
+(def-generic-property property-seq "sequence" nil "integer")
+
 
 (defun make-cal-address-node (element-tag string)
   (stp:append-child
@@ -492,17 +552,12 @@
     (declare (ignore group params))
     (make-cal-address-node (string-downcase name) value)))
 
-(defun last-mod (result) (text-content result))
-
 (defun organizer (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group params))
     (make-cal-address-node name value)))
 
 (defun seq (result) (text-content result))
-(defun recurid (result) (text-content result))
-
-(def-generic-property property-uid "uid" nil "text")
 
 (defun vtodo? ()
   (named-seq?
@@ -561,10 +616,10 @@
     (map nil (lambda (x)
                (setf (gethash (symbol-name x) hash) x))
          '(property-dtstamp property-dtstart property-dtend
-           attendee property-class property-created
-           property-description last-mod
-           location organizer property-priority
-           seq transp recurid property-uid))
+           property-attendee property-class property-created
+           property-description property-last-mod
+           property-location property-organizer property-priority
+           property-seq property-transp #+nil recurid property-uid))
     hash))
 
 (defun handle-content-line (result)
