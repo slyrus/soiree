@@ -201,7 +201,7 @@
            (organizer . property-organizer)
            (priority . property-priority)
            (seq . property-seq)
-           #+nil status-event
+           (status property-status-event)
            (summary . property-summary)
            (transp . property-transp)
            (url . property-url)
@@ -247,6 +247,63 @@
                     (stp:make-element "properties" *ical-namespace*))))
       ;; FIXME! We should create DTSTAMP and UID if they don't exist here!
       vevent))))
+
+;; 3.6.2 To-do Component
+(defparameter *vtodo-content-dispatch*
+  (let ((hash (make-hash-table :test 'equal)))
+    (map nil (lambda (x)
+               (setf (gethash (car x) hash) (cdr x)))
+         '((dtstamp . property-dtstamp)
+           (uid . property-uid)
+
+           (class .  property-class)
+           (competed .  property-competed)
+           (created . property-created)
+           (description . property-description) 
+           (geo . property-geo) 
+           (last-mod . property-last-mod)
+           (location . property-location)
+           (organizer . property-organizer)
+           (percent . property-percent)
+           (priority . property-priority)
+           #+il (recurid . recurid) 
+           (seq . property-seq)
+           (status . property-status-todo)
+           (summary . property-summary)
+           (url . property-url)
+           #+nil rrule
+           (attach . property-attach)
+           (attendee . property-attendee)
+           (categories . property-categories)
+           (comment . property-comment)
+           (contact . property-contact)
+           #+nil exdate
+           #+nil rstatus
+           (related . property-related)
+           (resources . property-resources])
+           #+nil rdate))
+    hash))
+
+(defun handle-vtodo-content-line (result)
+  (destructuring-bind (group name params value) result
+       (declare (ignore group params value))
+    (let ((fn (gethash (intern (string-upcase name) :soiree-icalendar)
+                       *vtodo-content-dispatch*)))
+      (when fn
+        (funcall fn result)))))
+
+(defun vtodo? ()
+  (named-seq?
+   "BEGIN" ":" "VTODO" #\Return #\Newline
+   (<- content (many? (content-line?)))
+   "END" ":" "VTODO" #\Return #\Newline
+   (reduce (lambda (element x)
+             (let ((x (handle-vtodo-content-line x)))
+               (if (and x (not (consp x)))
+                   (stp:append-child element x)
+                   element)))
+           content
+           :initial-value (stp:make-element "vtodo" *ical-namespace*))))
 
 
 ;;; Properties
@@ -419,7 +476,6 @@
             (t
              (make-date-time-node name value))))))
 
-
 ;; 3.8.2.1 Completed
 (defun property-completed (result) (date-time-node result))
 
@@ -538,39 +594,6 @@
 
 ;; 3.8.7.4 Sequence Number
 (def-generic-property property-seq "sequence" nil "integer")
-
-
-(defun make-cal-address-node (element-tag string)
-  (stp:append-child
-   (stp:make-element (string-downcase element-tag) *ical-namespace*)
-   (stp:append-child
-    (stp:make-element "cal-address" *ical-namespace*)
-    (stp:make-text string))))
-
-(defun cal-address-node (result)
-  (destructuring-bind (group name params value) result
-    (declare (ignore group params))
-    (make-cal-address-node (string-downcase name) value)))
-
-(defun organizer (result)
-  (destructuring-bind (group name params value) result
-    (declare (ignore group params))
-    (make-cal-address-node name value)))
-
-(defun seq (result) (text-content result))
-
-(defun vtodo? ()
-  (named-seq?
-   "BEGIN" ":" "VTODO" #\Return #\Newline
-   (<- content (many? (content-line?)))
-   "END" ":" "VTODO" #\Return #\Newline
-   (reduce (lambda (element x)
-             (let ((x (handle-content-line x)))
-               (if (and x (not (consp x)))
-                   (stp:append-child element x)
-                   element)))
-           content
-           :initial-value (stp:make-element "vtodo" *ical-namespace*))))
 
 (defun vjournal? ()
   (named-seq?
