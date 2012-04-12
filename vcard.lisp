@@ -578,15 +578,14 @@
 (defun vcard? ()
   (named-seq?
    "BEGIN" ":" "VCARD" #\Return #\Newline
-   (<- content (many1?
-                (content-line?)))
+   (<- properties (many1? (property-line?)))
    "END" ":" "VCARD" #\Return #\Newline
    (reduce (lambda (element x)
              (let ((x (handle-content-line x)))
                (if (and x (not (consp x)))
                    (stp:append-child element x)
                    element)))
-           content
+           properties
            :initial-value (stp:make-element "vcard" *vcard-namespace*))))
 
 (defun parse-vcard (str)

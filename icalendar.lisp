@@ -173,8 +173,7 @@
 (defun method (result) (text-content result))
 
 ;; FIXME flesh out calprop support
-(defun calprop? ()
-  (content-line?))
+(defun calprop? () (property-line?))
 
 (defun component? ()
   (choices (vevent?)
@@ -184,14 +183,13 @@
            (vtimezone?)))
 
 ;; 3.6.1 Event Component
-(defparameter *vevent-content-dispatch*
+(defparameter *vevent-property-dispatch*
   (let ((hash (make-hash-table :test 'equal)))
     (map nil (lambda (x)
                (setf (gethash (car x) hash) (cdr x)))
          '((dtstamp . property-dtstamp)
            (dtstart . property-dtstart)
            (uid . property-uid)
-
            (class .  property-class)
            (created . property-created)
            (description . property-description) 
@@ -205,51 +203,53 @@
            (summary . property-summary)
            (transp . property-transp)
            (url . property-url)
-           #+il (recurid . recurid) 
-           #+nil rrule
+           #+nil (recurid . recurid) 
+           #+nil (rrule property-rrule)
            (dtend . property-dtend) 
-           #+nil duration
+           #+nil (duration property-duration)
            (attach . property-attach)
            (attendee . property-attendee)
            (categories . property-categories)
            (comment . property-comment)
            (contact . property-contact)
-           #+nil exdate
-           #+nil rstatus
+           #+nil (exdate property-exdate)
+           #+nil (rstatus property-rstatus)
            (related . property-related)
            (resources . property-resources])
-           #+nil rdate))
+           #+nil (rdate property-rdate)))
     hash))
 
-(defun handle-vevent-content-line (result)
+(defun handle-vevent-property-line (result)
   (destructuring-bind (group name params value) result
        (declare (ignore group params value))
     (let ((fn (gethash (intern (string-upcase name) :soiree-icalendar)
-                       *vevent-content-dispatch*)))
+                       *vevent-property-dispatch*)))
       (when fn
         (funcall fn result)))))
+
+;; FIXME add handle-vevent-component
 
 (defun vevent? ()
   (named-seq?
    "BEGIN" ":" "VEVENT" #\Return #\Newline
-   (<- content (many? (content-line?)))
+   (<- properties (many? (property-line?)))
    "END" ":" "VEVENT" #\Return #\Newline
    (stp:append-child
     (stp:make-element "vevent" *ical-namespace*)
     (let ((vevent
             (reduce (lambda (element x)
-                      (let ((x (handle-vevent-content-line x)))
+                      (let ((x (handle-vevent-property-line x)))
                         (if (and x (not (consp x)))
                             (stp:append-child element x)
                             element)))
-                    content
+                    properties
                     :initial-value
                     (stp:make-element "properties" *ical-namespace*))))
       ;; FIXME! We should create DTSTAMP and UID if they don't exist here!
       vevent))))
 
 ;; 3.6.2 To-do Component
-(defparameter *vtodo-content-dispatch*
+(defparameter *vtodo-property-dispatch*
   (let ((hash (make-hash-table :test 'equal)))
     (map nil (lambda (x)
                (setf (gethash (car x) hash) (cdr x)))
@@ -257,7 +257,7 @@
            (uid . property-uid)
 
            (class .  property-class)
-           (competed .  property-competed)
+           (completed .  property-completed)
            (created . property-created)
            (description . property-description) 
            (geo . property-geo) 
@@ -266,44 +266,191 @@
            (organizer . property-organizer)
            (percent . property-percent)
            (priority . property-priority)
-           #+il (recurid . recurid) 
+           #+nil (recurid . property-recurid) 
            (seq . property-seq)
            (status . property-status-todo)
            (summary . property-summary)
            (url . property-url)
-           #+nil rrule
+           #+nil (rrule . property-rrule)
            (attach . property-attach)
            (attendee . property-attendee)
            (categories . property-categories)
            (comment . property-comment)
            (contact . property-contact)
-           #+nil exdate
-           #+nil rstatus
+           #+nil (exdate . property-exdate)
+           #+nil (rstatus . property-rstatus)
            (related . property-related)
            (resources . property-resources])
-           #+nil rdate))
+           #+nil (rdate property-rdate)))
     hash))
 
-(defun handle-vtodo-content-line (result)
+(defun handle-vtodo-property-line (result)
   (destructuring-bind (group name params value) result
        (declare (ignore group params value))
     (let ((fn (gethash (intern (string-upcase name) :soiree-icalendar)
-                       *vtodo-content-dispatch*)))
+                       *vtodo-property-dispatch*)))
       (when fn
         (funcall fn result)))))
 
 (defun vtodo? ()
   (named-seq?
    "BEGIN" ":" "VTODO" #\Return #\Newline
-   (<- content (many? (content-line?)))
+   (<- properties (many? (property-line?)))
    "END" ":" "VTODO" #\Return #\Newline
    (reduce (lambda (element x)
-             (let ((x (handle-vtodo-content-line x)))
+             (let ((x (handle-vtodo-property-line x)))
                (if (and x (not (consp x)))
                    (stp:append-child element x)
                    element)))
-           content
+           properties
            :initial-value (stp:make-element "vtodo" *ical-namespace*))))
+
+;; 3.6.3 Journal Component
+
+(defparameter *vjournal-property-dispatch*
+  (let ((hash (make-hash-table :test 'equal)))
+    (map nil (lambda (x)
+               (setf (gethash (car x) hash) (cdr x)))
+         '((dtstamp . property-dtstamp)
+           (uid . property-uid)
+           (class .  property-class)
+           (created . property-created)
+           (dtstart . property-dtstart)
+           (last-mod . property-last-mod)
+           (organizer . property-organizer)
+           #+nil (recurid . property-recurid) 
+           (seq . property-seq)
+           (status . property-status-journal)
+           (summary . property-summary)
+           (url . property-url)
+           #+nil (rrule . property-rrule)
+           (attach . property-attach)
+           (attendee . property-attendee)
+           (categories . property-categories)
+           (comment . property-comment)
+           (contact . property-contact)
+           (description . property-description) 
+           #+nil (exdate . property-exdate)
+           (related . property-related)
+           #+nil (rdate property-rdate)
+           #+nil (rstatus . property-rstatus)))
+    hash))
+
+(defun handle-vjournal-property-line (result)
+  (destructuring-bind (group name params value) result
+       (declare (ignore group params value))
+    (let ((fn (gethash (intern (string-upcase name) :soiree-icalendar)
+                       *vjournal-property-dispatch*)))
+      (when fn
+        (funcall fn result)))))
+
+(defun vjournal? ()
+  (named-seq?
+   "BEGIN" ":" "VJOURNAL" #\Return #\Newline
+   (<- properties (many? (property-line?)))
+   "END" ":" "VJOURNAL" #\Return #\Newline
+   (reduce (lambda (element x)
+             (let ((x (handle-vjournal-property-line x)))
+               (if (and x (not (consp x)))
+                   (stp:append-child element x)
+                   element)))
+           properties
+           :initial-value (stp:make-element "vjournal" *ical-namespace*))))
+
+;; 3.6.4 Free/Busy Component
+
+(defparameter *vfreebusy-property-dispatch*
+  (let ((hash (make-hash-table :test 'equal)))
+    (map nil (lambda (x)
+               (setf (gethash (car x) hash) (cdr x)))
+         '((dtstamp . property-dtstamp)
+           (uid . property-uid)
+           (contact . property-contact)
+           (dtstart . property-dtstart)
+           (dtend . property-dtstart)
+           #+nil (duration property-duration)
+           (organizer . property-organizer)
+           (url . property-url)
+           (attendee . property-attendee)
+           (comment . property-comment)
+           #+nil (rstatus . property-rstatus)
+           #+nil (freebusy . property-freebusy)))
+    hash))
+
+(defun handle-vfreebusy-property-line (result)
+  (destructuring-bind (group name params value) result
+       (declare (ignore group params value))
+    (let ((fn (gethash (intern (string-upcase name) :soiree-icalendar)
+                       *vfreebusy-property-dispatch*)))
+      (when fn
+        (funcall fn result)))))
+
+(defun vfreebusy? ()
+  (named-seq?
+   "BEGIN" ":" "VFREEBUSY" #\Return #\Newline
+   (<- properties (many? (property-line?)))
+   "END" ":" "VFREEBUSY" #\Return #\Newline
+   (reduce (lambda (element x)
+             (let ((x (handle-vfreebusy-property-line x)))
+               (if (and x (not (consp x)))
+                   (stp:append-child element x)
+                   element)))
+           properties
+           :initial-value (stp:make-element "vfreebusy" *ical-namespace*))))
+
+;; 3.6.5 Time Zone Component
+
+(defparameter *vtimezone-property-dispatch*
+  (let ((hash (make-hash-table :test 'equal)))
+    (map nil (lambda (x)
+               (setf (gethash (car x) hash) (cdr x)))
+         '((tzid . property-tzid)
+           (lastmod . property-lastmod)
+           (tzurl . property-tzurl)))
+    hash))
+
+(defun handle-vtimezone-property-line (result)
+  (destructuring-bind (group name params value) result
+       (declare (ignore group params value))
+    (let ((fn (gethash (intern (string-upcase name) :soiree-icalendar)
+                       *vtimezone-property-dispatch*)))
+      (when fn
+        (funcall fn result)))))
+
+(defun standardc? ()
+  (named-seq?
+   "BEGIN" ":" "STANDARD" #\Return #\Newline
+   (<- properties (many? (property-line?)))
+   "END" ":" "STANDARD" #\Return #\Newline
+   (stp:make-element "standard" *ical-namespace*)))
+
+(defun daylightc? ()
+  (named-seq?
+   "BEGIN" ":" "DAYLIGHT" #\Return #\Newline
+   (<- properties (many? (property-line?)))
+   "END" ":" "DAYLIGHT" #\Return #\Newline
+   (stp:make-element "daylight" *ical-namespace*)))
+
+;;; FIXME!!! Really handle daylight and standard components!
+(defun vtimezone? ()
+  (named-seq?
+   "BEGIN" ":" "VTIMEZONE" #\Return #\Newline
+   (<- properties (many? (property-line?)))
+   (<- components (many? (choice (standardc?)
+                                 (daylightc?))))
+   "END" ":" "VTIMEZONE" #\Return #\Newline
+   (reduce
+    #'stp:append-child
+    components
+    :initial-value
+    (reduce (lambda (element x)
+              (let ((x (handle-vtimezone-property-line x)))
+                (if (and x (not (consp x)))
+                    (stp:append-child element x)
+                    element)))
+            properties
+            :initial-value (stp:make-element "vtimezone" *ical-namespace*)))))
+
 
 
 ;;; Properties
@@ -595,62 +742,8 @@
 ;; 3.8.7.4 Sequence Number
 (def-generic-property property-seq "sequence" nil "integer")
 
-(defun vjournal? ()
-  (named-seq?
-   "BEGIN" ":" "VJOURNAL" #\Return #\Newline
-   (<- content (many? (content-line?)))
-   "END" ":" "VJOURNAL" #\Return #\Newline
-   (reduce (lambda (element x)
-             (let ((x (handle-content-line x)))
-               (if (and x (not (consp x)))
-                   (stp:append-child element x)
-                   element)))
-           content
-           :initial-value (stp:make-element "vjournal" *ical-namespace*))))
 
-(defun vfreebusy? ()
-  (named-seq?
-   "BEGIN" ":" "VFREEBUSY" #\Return #\Newline
-   (<- content (many? (content-line?)))
-   "END" ":" "VFREEBUSY" #\Return #\Newline
-   (reduce (lambda (element x)
-             (let ((x (handle-content-line x)))
-               (if (and x (not (consp x)))
-                   (stp:append-child element x)
-                   element)))
-           content
-           :initial-value (stp:make-element "vfreebusy" *ical-namespace*))))
-
-(defun vtimezone? ()
-  (named-seq?
-   "BEGIN" ":" "VTIMEZONE" #\Return #\Newline
-   (<- content (many? (content-line?)))
-   "END" ":" "VTIMEZONE" #\Return #\Newline
-   (reduce (lambda (element x)
-             (let ((x (handle-content-line x)))
-               (if (and x (not (consp x)))
-                   (stp:append-child element x)
-                   element)))
-           content
-           :initial-value (stp:make-element "vtimezone" *ical-namespace*))))
-
-(defparameter *content-dispatch*
-  (let ((hash (make-hash-table :test 'equal)))
-    (map nil (lambda (x)
-               (setf (gethash (symbol-name x) hash) x))
-         '(property-dtstamp property-dtstart property-dtend
-           property-attendee property-class property-created
-           property-description property-last-mod
-           property-location property-organizer property-priority
-           property-seq property-transp #+nil recurid property-uid))
-    hash))
-
-(defun handle-content-line (result)
-  (destructuring-bind (group name params value) result
-       (declare (ignore group params value))
-    (let ((fn (gethash (string-upcase name) *content-dispatch*)))
-      (when fn (funcall fn result)))))
-
+;;; Main Calendar Parsing Entry
 (defun vcalendar? ()
   (named-seq?
    "BEGIN" ":" "VCALENDAR" #\Return #\Newline

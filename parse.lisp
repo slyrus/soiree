@@ -22,7 +22,7 @@
 
            #:name?
            #:x-name-line?
-           #:content-line?))
+           #:property-line?))
 
 (cl:in-package :soiree-parse)
 
@@ -227,13 +227,29 @@
           (zero)
           (result name)))))
 
-(defun content-line? ()
+(defun name-not-begin? ()
+  (let ((name? (name?)))
+    (mdo
+      (<- name name?)
+      (if (string-equal name "BEGIN")
+          (zero)
+          (result name)))))
+
+(defun name-not-begin-or-end? ()
+  (let ((name? (name?)))
+    (mdo
+      (<- name name?)
+      (if (member name '("BEGIN" "END") :test 'string-equal)
+          (zero)
+          (result name)))))
+
+(defun property-line? ()
   ;; [group "."] name *(";" param) ":" value CRLF
   (named-seq?
    (<- group (opt? (hook?
                     #'first
                     (seq-list? (group?) "."))))
-   (<- name (name-not-end?))
+   (<- name (name-not-begin-or-end?))
    (<- params (many? (named-seq?
                       ";"
                       (<- param (param?))
