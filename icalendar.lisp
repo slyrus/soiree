@@ -227,26 +227,30 @@
       (when fn
         (funcall fn result)))))
 
-;; FIXME add handle-vevent-component
-
 (defun vevent? ()
   (named-seq?
    "BEGIN" ":" "VEVENT" #\Return #\Newline
    (<- properties (many? (property-line?)))
+   (<- components (many? (alarmc?)))
    "END" ":" "VEVENT" #\Return #\Newline
-   (stp:append-child
-    (stp:make-element "vevent" *ical-namespace*)
-    (let ((vevent
-            (reduce (lambda (element x)
-                      (let ((x (handle-vevent-property-line x)))
-                        (if (and x (not (consp x)))
-                            (stp:append-child element x)
-                            element)))
-                    properties
-                    :initial-value
-                    (stp:make-element "properties" *ical-namespace*))))
-      ;; FIXME! We should create DTSTAMP and UID if they don't exist here!
-      vevent))))
+   ;; FIXME! We should create DTSTAMP and UID if they don't exist here!
+   (let ((vevent-node (stp:make-element "vevent" *ical-namespace*)))
+     (stp:append-child
+      vevent-node
+      (reduce (lambda (element x)
+                (let ((x (handle-vevent-property-line x)))
+                  (if (and x (not (consp x)))
+                      (stp:append-child element x)
+                      element)))
+              properties
+              :initial-value (stp:make-element "properties" *ical-namespace*)))
+     (when components
+       (stp:append-child
+        vevent-node
+        (reduce #'stp:append-child
+                components
+                :initial-value (stp:make-element "components" *ical-namespace*))))
+     vevent-node)))
 
 ;; 3.6.2 To-do Component
 (defparameter *vtodo-property-dispatch*
@@ -296,14 +300,25 @@
   (named-seq?
    "BEGIN" ":" "VTODO" #\Return #\Newline
    (<- properties (many? (property-line?)))
+   (<- components (many? (alarmc?)))
    "END" ":" "VTODO" #\Return #\Newline
-   (reduce (lambda (element x)
-             (let ((x (handle-vtodo-property-line x)))
-               (if (and x (not (consp x)))
-                   (stp:append-child element x)
-                   element)))
-           properties
-           :initial-value (stp:make-element "vtodo" *ical-namespace*))))
+   (let ((vtodo-node (stp:make-element "vtodo" *ical-namespace*)))
+     (stp:append-child
+      vtodo-node
+      (reduce (lambda (element x)
+                (let ((x (handle-vtodo-property-line x)))
+                  (if (and x (not (consp x)))
+                      (stp:append-child element x)
+                      element)))
+              properties
+              :initial-value (stp:make-element "properties" *ical-namespace*)))
+     (when components
+       (stp:append-child
+        vtodo-node
+        (reduce #'stp:append-child
+                components
+                :initial-value (stp:make-element "components" *ical-namespace*))))
+     vtodo-node)))
 
 ;; 3.6.3 Journal Component
 
@@ -441,17 +456,58 @@
    "END" ":" "VTIMEZONE" #\Return #\Newline
    (reduce
     #'stp:append-child
-    components
-    :initial-value
-    (reduce (lambda (element x)
-              (let ((x (handle-vtimezone-property-line x)))
-                (if (and x (not (consp x)))
-                    (stp:append-child element x)
-                    element)))
-            properties
-            :initial-value (stp:make-element "vtimezone" *ical-namespace*)))))
+    (list (reduce (lambda (element x)
+                    (let ((x (handle-vtimezone-property-line x)))
+                      (if (and x (not (consp x)))
+                          (stp:append-child element x)
+                          element)))
+                  properties
+                  :initial-value (stp:make-element "properties" *ical-namespace*))
+          (reduce #'stp:append-child
+                  components
+                  :initial-value (stp:make-element "components" *ical-namespace*)))
+    :initial-value (stp:make-element "vtimezone" *ical-namespace*))))
 
+;; 3.6.6 Alarm Component
 
+(defparameter *valarm-property-dispatch*
+  (let ((hash (make-hash-table :test 'equal)))
+    (map nil (lambda (x)
+               (setf (gethash (car x) hash) (cdr x)))
+         '((action . property-action)
+           (description . property-description)
+           #+nil (trigger . property-trigger)
+           (summary . property-attendee)
+           (attendee . property-attendee)
+           #+nil (duration . property-duration)
+           (repeat . property-repeat)
+           (attach . property-attach)))
+    hash))
+
+(defun handle-valarm-property-line (result)
+  (destructuring-bind (group name params value) result
+       (declare (ignore group params value))
+    (let ((fn (gethash (intern (string-upcase name) :soiree-icalendar)
+                       *valarm-property-dispatch*)))
+      (when fn
+        (funcall fn result)))))
+
+(defun alarmc? ()
+  (named-seq?
+   "BEGIN" ":" "VALARM" #\Return #\Newline
+   (<- properties (many? (property-line?)))
+   "END" ":" "VALARM" #\Return #\Newline
+   (let ((valarm-node (stp:make-element "valarm" *ical-namespace*)))
+     (stp:append-child
+      valarm-node
+      (reduce (lambda (element x)
+                (let ((x (handle-valarm-property-line x)))
+                  (if (and x (not (consp x)))
+                      (stp:append-child element x)
+                      element)))
+              properties
+              :initial-value (stp:make-element "properties" *ical-namespace*)))
+     valarm-node)))
 
 ;;; Properties
 
