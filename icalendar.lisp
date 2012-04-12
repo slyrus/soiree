@@ -131,6 +131,15 @@
 (def-generic-parameter memberparam "member" :node-type "cal-address")
 
 ;; 3.2.12 FIXME TODO Participation Status
+(def-generic-parameter partstateparam "partstat"
+  :node-type "text"
+  :allowed-values '("NEEDS-ACTION"
+                    "ACCEPTED"
+                    "DECLINED"
+                    "TENTATIVE"
+                    "DELEGATED"
+                    "COMPLETED"
+                    "IN-PROCESS"))
 
 ;; 3.2.13 Recurrence Identifier Range
 (def-generic-parameter rangeparam "range"
@@ -725,8 +734,7 @@
   '(cutypeparam
     memberparam
     roleparam
-    ;; FIXME!!!
-    #+nil partstatparam
+    partstatparam
     rsvpparam
     deltoparam
     delfromparam
