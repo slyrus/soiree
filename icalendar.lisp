@@ -208,7 +208,7 @@
            (organizer . property-organizer)
            (priority . property-priority)
            (seq . property-seq)
-           (status property-status-event)
+           (status . property-status-event)
            (summary . property-summary)
            (transp . property-transp)
            (url . property-url)
