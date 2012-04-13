@@ -373,13 +373,15 @@
    "BEGIN" ":" "VJOURNAL" #\Return #\Newline
    (<- properties (many? (property-line?)))
    "END" ":" "VJOURNAL" #\Return #\Newline
-   (reduce (lambda (element x)
-             (let ((x (handle-vjournal-property-line x)))
-               (if (and x (not (consp x)))
-                   (stp:append-child element x)
-                   element)))
-           properties
-           :initial-value (stp:make-element "vjournal" *ical-namespace*))))
+   (stp:append-child
+    (stp:make-element "vjournal" *ical-namespace*)
+    (reduce (lambda (element x)
+              (let ((x (handle-vjournal-property-line x)))
+                (if (and x (not (consp x)))
+                    (stp:append-child element x)
+                    element)))
+            properties
+            :initial-value (stp:make-element "properties" *ical-namespace*)))))
 
 ;; 3.6.4 Free/Busy Component
 
@@ -414,13 +416,15 @@
    "BEGIN" ":" "VFREEBUSY" #\Return #\Newline
    (<- properties (many? (property-line?)))
    "END" ":" "VFREEBUSY" #\Return #\Newline
-   (reduce (lambda (element x)
-             (let ((x (handle-vfreebusy-property-line x)))
-               (if (and x (not (consp x)))
-                   (stp:append-child element x)
-                   element)))
-           properties
-           :initial-value (stp:make-element "vfreebusy" *ical-namespace*))))
+   (stp:append-child
+    (stp:make-element "vfreebusy" *ical-namespace*)
+    (reduce (lambda (element x)
+              (let ((x (handle-vfreebusy-property-line x)))
+                (if (and x (not (consp x)))
+                    (stp:append-child element x)
+                    element)))
+            properties
+            :initial-value (stp:make-element "properties" *ical-namespace*)))))
 
 ;; 3.6.5 Time Zone Component
 
