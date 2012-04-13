@@ -362,8 +362,8 @@
            (categories . property-categories)
            (comment . property-comment)
            (contact . property-contact)
-           (exdate property-exdate)
-           #+nil (rstatus property-rstatus)
+           (exdate . property-exdate)
+           (request-status . property-rstatus)
            (related . property-related)
            (resources . property-resources])
            #+nil (rdate property-rdate)))
@@ -432,7 +432,7 @@
            (comment . property-comment)
            (contact . property-contact)
            (exdate . property-exdate)
-           #+nil (rstatus . property-rstatus)
+           (request-status . property-rstatus)
            (related . property-related)
            (resources . property-resources])
            #+nil (rdate property-rdate)))
@@ -498,7 +498,7 @@
            (exdate . property-exdate)
            (related . property-related)
            #+nil (rdate property-rdate)
-           #+nil (rstatus . property-rstatus)))
+           (request-status . property-rstatus)))
     hash))
 
 (defun handle-vjournal-property-line (result)
@@ -540,7 +540,7 @@
            (url . property-url)
            (attendee . property-attendee)
            (comment . property-comment)
-           #+nil (rstatus . property-rstatus)
+           (request-status . property-rstatus)
            (freebusy . property-freebusy)))
     hash))
 
@@ -1083,6 +1083,21 @@
 ;; 3.8.7.4 Sequence Number
 (def-generic-property property-seq "sequence" nil "integer")
 
+;; 3.8.8.3 Request Status
+(defun property-rstatus (result)
+  (destructuring-bind
+      (group name params value)
+      result
+    (declare (ignore group name))
+    (let ((node (cxml-stp:make-element "request-status" *ical-namespace*))
+          (param-element (extract-parameters params '(languageparam))))
+      (when (plusp (cxml-stp:number-of-children param-element))
+        (cxml-stp:append-child node param-element))
+      (destructuring-bind (code desc &optional data)
+          (split-string value :delimiter #\;)
+        (cxml-stp:append-child node (make-text-node "code" code))
+        (cxml-stp:append-child node (make-text-node "description" desc))
+        (cxml-stp:append-child node (make-text-node "data" data))))))
 
 ;;; Main Calendar Parsing Entry
 (defun vcalendar? ()
