@@ -152,7 +152,7 @@
 ;; 3.2.11 Group or List Membership
 (def-generic-parameter memberparam "member" :node-type "cal-address")
 
-;; 3.2.12 FIXME TODO Participation Status
+;; 3.2.12 Participation Status
 (def-generic-parameter partstatparam "partstat"
   :node-type "text"
   :allowed-values '("NEEDS-ACTION"
@@ -518,7 +518,6 @@
             properties
             :initial-value (stp:make-element "properties" *ical-namespace*)))))
 
-;;; FIXME!!! Really handle daylight and standard components!
 (defun vtimezone? ()
   (named-seq?
    "BEGIN" ":" "VTIMEZONE" #\Return #\Newline
@@ -583,8 +582,6 @@
      (stp:append-child valarm-node property-node)
      ;; We need to fix up valarm-node such that if there is a duration
      ;; node, it appears before the repat node!
-     ;;
-     ;; FIXME! The regexp for durations seems wrong!!!!
      (let ((duration (stp:find-child "duration" property-node
                                      :key #'stp:local-name))
            (repeat (stp:find-child "repeat" property-node
@@ -802,7 +799,7 @@
 ;; 3.8.2.4 Date/Time Start
 (defun property-dtstart (result) (date-time-or-date-node result))
 
-;; 3.8.2.5 Duration FIXME!!!
+;; 3.8.2.5 Duration
 (def-generic-property property-duration "duration" nil "duration")
 
 ;; 3.8.2.6 Free/Busy Time FIXME!!!
@@ -895,9 +892,11 @@
 
 ;; 3.8.5 Recurrence Component Properties
 
-;; 3.8.5.1 Exception Date/Times TBD
-;; 3.8.5.2 Recurrence Date/Times TBD
-;; 3.8.5.3 Recurrence Rule TBD
+;; 3.8.5.1 Exception Date/Times TBD FIXME!
+
+;; 3.8.5.2 Recurrence Date/Times TBD FIXME!
+
+;; 3.8.5.3 Recurrence Rule TBD FIXME!
 
 ;; 3.8.6 Alarm Component Properties
 
