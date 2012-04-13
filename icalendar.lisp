@@ -131,7 +131,7 @@
 (def-generic-parameter memberparam "member" :node-type "cal-address")
 
 ;; 3.2.12 FIXME TODO Participation Status
-(def-generic-parameter partstateparam "partstat"
+(def-generic-parameter partstatparam "partstat"
   :node-type "text"
   :allowed-values '("NEEDS-ACTION"
                     "ACCEPTED"
@@ -212,10 +212,10 @@
            (summary . property-summary)
            (transp . property-transp)
            (url . property-url)
-           #+nil (recurid . recurid) 
+           (recurid . recurid) 
            #+nil (rrule property-rrule)
            (dtend . property-dtend) 
-           #+nil (duration property-duration)
+           (duration property-duration)
            (attach . property-attach)
            (attendee . property-attendee)
            (categories . property-categories)
@@ -279,7 +279,7 @@
            (organizer . property-organizer)
            (percent . property-percent)
            (priority . property-priority)
-           #+nil (recurid . property-recurid) 
+           (recurid . property-recurid) 
            (seq . property-seq)
            (status . property-status-todo)
            (summary . property-summary)
@@ -342,7 +342,7 @@
            (dtstart . property-dtstart)
            (last-mod . property-last-mod)
            (organizer . property-organizer)
-           #+nil (recurid . property-recurid) 
+           (recurid . property-recurid) 
            (seq . property-seq)
            (status . property-status-journal)
            (summary . property-summary)
@@ -392,7 +392,7 @@
            (contact . property-contact)
            (dtstart . property-dtstart)
            (dtend . property-dtstart)
-           #+nil (duration property-duration)
+           (duration property-duration)
            (organizer . property-organizer)
            (url . property-url)
            (attendee . property-attendee)
@@ -485,10 +485,10 @@
                (setf (gethash (car x) hash) (cdr x)))
          '((action . property-action)
            (description . property-description)
-           #+nil (trigger . property-trigger)
+           (trigger . property-trigger)
            (summary . property-attendee)
            (attendee . property-attendee)
-           #+nil (duration . property-duration)
+           (duration . property-duration)
            (repeat . property-repeat)
            (attach . property-attach)))
     hash))
@@ -506,16 +506,29 @@
    "BEGIN" ":" "VALARM" #\Return #\Newline
    (<- properties (many? (property-line?)))
    "END" ":" "VALARM" #\Return #\Newline
-   (let ((valarm-node (stp:make-element "valarm" *ical-namespace*)))
-     (stp:append-child
-      valarm-node
-      (reduce (lambda (element x)
-                (let ((x (handle-valarm-property-line x)))
-                  (if (and x (not (consp x)))
-                      (stp:append-child element x)
-                      element)))
-              properties
-              :initial-value (stp:make-element "properties" *ical-namespace*)))
+   (let ((valarm-node (stp:make-element "valarm" *ical-namespace*))
+         (property-node
+           (reduce
+            (lambda (element x)
+              (let ((x (handle-valarm-property-line x)))
+                (if (and x (not (consp x)))
+                    (stp:append-child element x)
+                    element)))
+            properties
+            :initial-value
+            (stp:make-element "properties" *ical-namespace*))))
+     (stp:append-child valarm-node property-node)
+     ;; We need to fix up valarm-node such that if there is a duration
+     ;; node, it appears before the repat node!
+     ;;
+     ;; FIXME! The regexp for durations seems wrong!!!!
+     (let ((duration (stp:find-child "duration" property-node
+                                     :key #'stp:local-name))
+           (repeat (stp:find-child "repeat" property-node
+                                   :key #'stp:local-name)))
+       (when (and duration repeat)
+          (stp:delete-child repeat property-node)
+          (stp:insert-child-after property-node repeat duration)))
      valarm-node)))
 
 ;;; Properties
@@ -660,16 +673,19 @@
         (convert-icalendar-date-to-xcal string)
       (stp:make-text (format nil "~2,'0D-~2,'0D-~2,'0D" year month day))))))
 
+(defun %make-date-time-node (string)
+  (stp:append-child
+   (stp:make-element "date-time" *ical-namespace*)
+   (destructuring-bind ((year month day)
+                        (hours minute second utc))
+       (convert-icalendar-date-time-to-xcal string)
+     (stp:make-text (format nil "~2,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0D"
+                            year month day hours minute second)))))
+
 (defun make-date-time-node (element-tag string)
   (stp:append-child
    (stp:make-element (string-downcase element-tag) *ical-namespace*)
-   (stp:append-child
-    (stp:make-element "date-time" *ical-namespace*)
-    (destructuring-bind ((year month day)
-                         (hours minute second utc))
-        (convert-icalendar-date-time-to-xcal string)
-      (stp:make-text (format nil "~2,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0D"
-                             year month day hours minute second))))))
+   (%make-date-time-node string)))
 
 ;; FIXME! Add tz support here!
 (defun date-time-node (result)
@@ -688,6 +704,24 @@
             (t
              (make-date-time-node name value))))))
 
+(defmacro def-date-time-or-date-property (property-name element-name
+                                          parameter-functions)
+  `(defun ,property-name (result)
+     (destructuring-bind (group name params value) result
+       (declare (ignore group name))
+       (let ((node (stp:make-element ,element-name *ical-namespace*))
+             (param-element (extract-parameters
+                             params
+                             ,parameter-functions)))
+         (when (plusp (stp:number-of-children param-element))
+           (stp:append-child node param-element))
+         (let ((value-type
+                 (or (caadar (keep "value" params :test #'string-equal :key #'car)))))
+           (cond ((string-equal value-type "DATE")
+                  (make-date-node ,element-name value))
+                 (t
+                   (make-date-time-node ,element-name value))))))))
+
 ;; 3.8.2.1 Completed
 (defun property-completed (result) (date-time-node result))
 
@@ -701,7 +735,7 @@
 (defun property-dtstart (result) (date-time-or-date-node result))
 
 ;; 3.8.2.5 Duration FIXME!!!
-#+nil (defun property-duration (result) (date-time-or-date-node result))
+(def-generic-property property-duration "duration" nil "duration")
 
 ;; 3.8.2.6 Free/Busy Time FIXME!!!
 
@@ -759,8 +793,8 @@
   "cal-address")
 
 ;; 3.8.4.4 Recurrence ID
-;; FIXME!!! This needs help.
-#+nil (defun property-recurid (result) (date-time-or-date-node result))
+(def-date-time-or-date-property property-recurid "recurid"
+  '(tzidparam rangeparam))
 
 ;; 3.8.4.5 Related-To
 (def-generic-property property-related "related-to"
@@ -789,8 +823,22 @@
 ;; 3.8.6.2 Repeat Count
 (def-generic-property property-repeat "repeat" nil "integer")
 
-;; 3.8.6.3 Trigger TBD
-
+;; 3.8.6.3 Trigger
+(defun property-trigger (result)
+  (destructuring-bind
+      (group name params value)
+      result
+    (declare (ignore group name))
+    (let ((node (cxml-stp:make-element "trigger" *ical-namespace*))
+          (param-element (extract-parameters params nil)))
+      (when (plusp (cxml-stp:number-of-children param-element))
+        (cxml-stp:append-child node param-element))
+      (let ((trigger-type
+              (caadar
+               (keep "value" params :test #'string-equal :key #'car))))
+        (if (string-equal trigger-type "date-time")
+            (cxml-stp:append-child node (%make-date-time-node value))
+            (cxml-stp:append-child node (make-text-node "duration" value)))))))
 
 ;; 3.8.7 Change Management Component Properties
 
