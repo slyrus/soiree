@@ -46,7 +46,7 @@
            (destructuring-bind (hour-digits minute-digits second-digits time-utc) x
              (let ((hour (digits-to-number hour-digits))
                    (minute (+ (* 10 (first minute-digits)) (second minute-digits)))
-                   (second (+ (* 10 (first second-digits)) (second minute-digits))))
+                   (second (+ (* 10 (first second-digits)) (second second-digits))))
                (list hour minute second time-utc))))
          (seq-list? (times? (hook? #'digit-char-p (digit?)) 2)
                     (times? (hook? #'digit-char-p (digit?)) 2)
@@ -66,6 +66,28 @@
     (<- time (time?))
     (list date time))
    string))
+
+(defun utc-offset? ()
+  (hook? (lambda (x)
+           (destructuring-bind (sign hour-digits minute-digits second-digits) x
+             (let ((hour (digits-to-number hour-digits))
+                   (minute (+ (* 10 (first minute-digits)) (second minute-digits)))
+                   (second (when second-digits
+                             (+ (* 10 (first second-digits)) (second second-digits)))))
+               (list (if (eq sign #\-)
+                         (- hour)
+                         hour)
+                     minute second))))
+         (seq-list? (opt? (choice1 #\+ #\-))
+                    (times? (hook? #'digit-char-p (digit?)) 2)
+                    (times? (hook? #'digit-char-p (digit?)) 2)
+                    (opt? (times? (hook? #'digit-char-p (digit?)) 2)))))
+
+(defun convert-icalendar-utc-offset-to-xcal (string)
+  (destructuring-bind (hour minute second)
+      (parse-string* (utc-offset?) string)
+    (format nil "~:[~;-~]~2,'0D:~2,'0D~@[:~2,'0D~]"
+            (minusp hour) (abs hour) minute second)))
 
 ;;; Parameters
 
@@ -449,9 +471,9 @@
   (let ((hash (make-hash-table :test 'equal)))
     (map nil (lambda (x)
                (setf (gethash (car x) hash) (cdr x)))
-         '((dtstart)
-           (tzoffsetinfo . property-tzoffsetinfo)
+         '((dtstart . property-dtstart)
            (tzoffsetfrom . property-tzoffsetfrom)
+           (tzoffsetto . property-tzoffsetto)
            #+nil (rrule . property-rrule)
            (comment . property-comment)
            #+nil (rdate . property-rdate)
@@ -728,6 +750,11 @@
    (stp:make-element (string-downcase element-tag) *ical-namespace*)
    (%make-date-time-node string)))
 
+(defun %make-utc-node (string)
+  (stp:append-child
+   (stp:make-element "utc-offset" *ical-namespace*)
+   (stp:make-text (convert-icalendar-utc-offset-to-xcal string))))
+
 ;; FIXME! Add tz support here!
 (defun date-time-node (result)
   (destructuring-bind (group name params value) result
@@ -794,13 +821,31 @@
 (def-generic-property property-tzname "tzname" '(languageparam) "text")
 
 ;; 3.8.3.3 Time Zone Offset From
-(def-generic-property property-tzoffsetfrom "tzoffsetfrom" nil "utc-offset")
+(defun property-tzoffsetfrom (result)
+  (destructuring-bind
+      (group name params value)
+      result
+    (declare (ignore group name))
+    (let ((node (cxml-stp:make-element "tzoffsetfrom" *ical-namespace*))
+          (param-element (extract-parameters params nil)))
+      (when (plusp (cxml-stp:number-of-children param-element))
+        (cxml-stp:append-child node param-element))
+      (stp:append-child node (%make-utc-node value)))))
 
 ;; 3.8.3.4 Time Zone Offset To
-(def-generic-property property-tzoffsetto "tzoffsetto" nil "utc-offset")
+(defun property-tzoffsetto (result)
+  (destructuring-bind
+      (group name params value)
+      result
+    (declare (ignore group name))
+    (let ((node (cxml-stp:make-element "tzoffsetto" *ical-namespace*))
+          (param-element (extract-parameters params nil)))
+      (when (plusp (cxml-stp:number-of-children param-element))
+        (cxml-stp:append-child node param-element))
+      (stp:append-child node (%make-utc-node value)))))
 
 ;; 3.8.3.5 Time Zone URL
-(def-generic-property property-tzurl "tzurl" nil "text")
+(def-generic-property property-tzurl "tzurl" nil "uri")
 
 ;; 3.8.4 Relationship Component Properties
 
