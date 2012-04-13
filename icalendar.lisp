@@ -30,42 +30,6 @@
                         (/ (digits-to-number frac-part)
                            (float (expt 10 (length frac-part))))))
                    0))))
-(defun date? ()
-  (hook? (lambda (x)
-           (destructuring-bind (year-digits month-digits day-digits) x
-             (let ((year (digits-to-number year-digits))
-                   (month (+ (* 10 (first month-digits)) (second month-digits)))
-                   (day (+ (* 10 (first day-digits)) (second month-digits))))
-               (list year month day))))
-         (seq-list? (times? (hook? #'digit-char-p (digit?)) 4)
-                    (times? (hook? #'digit-char-p (digit?)) 2)
-                    (times? (hook? #'digit-char-p (digit?)) 2))))
-
-(defun time? ()
-  (hook? (lambda (x)
-           (destructuring-bind (hour-digits minute-digits second-digits time-utc) x
-             (let ((hour (digits-to-number hour-digits))
-                   (minute (+ (* 10 (first minute-digits)) (second minute-digits)))
-                   (second (+ (* 10 (first second-digits)) (second second-digits))))
-               (list hour minute second time-utc))))
-         (seq-list? (times? (hook? #'digit-char-p (digit?)) 2)
-                    (times? (hook? #'digit-char-p (digit?)) 2)
-                    (times? (hook? #'digit-char-p (digit?)) 2)
-                    (opt? #\Z))))
-
-(defun convert-icalendar-date-to-xcal (string)
-  (parse-string*
-   (date?)
-   string))
-
-(defun convert-icalendar-date-time-to-xcal (string)
-  (parse-string*
-   (named-seq?
-    (<- date (date?))
-    #\T
-    (<- time (time?))
-    (list date time))
-   string))
 
 (defun utc-offset? ()
   (hook? (lambda (x)
@@ -82,12 +46,6 @@
                     (times? (hook? #'digit-char-p (digit?)) 2)
                     (times? (hook? #'digit-char-p (digit?)) 2)
                     (opt? (times? (hook? #'digit-char-p (digit?)) 2)))))
-
-(defun convert-icalendar-utc-offset-to-xcal (string)
-  (destructuring-bind (hour minute second)
-      (parse-string* (utc-offset?) string)
-    (format nil "~:[~;-~]~2,'0D:~2,'0D~@[:~2,'0D~]"
-            (minusp hour) (abs hour) minute second)))
 
 ;;; Parameters
 
@@ -195,6 +153,165 @@
 
 ;; 3.2.19 Time Zone Identifier
 (def-generic-parameter tzidparam "tzid" :node-type "text")
+
+;; 3.3 Property Value Datatypes
+
+;; 3.3.4 DATE
+(defun date? ()
+  (hook? (lambda (x)
+           (destructuring-bind (year-digits month-digits day-digits) x
+             (let ((year (digits-to-number year-digits))
+                   (month (+ (* 10 (first month-digits)) (second month-digits)))
+                   (day (+ (* 10 (first day-digits)) (second day-digits))))
+               (list year month day))))
+         (seq-list? (times? (hook? #'digit-char-p (digit?)) 4)
+                    (times? (hook? #'digit-char-p (digit?)) 2)
+                    (times? (hook? #'digit-char-p (digit?)) 2))))
+
+;; 3.3.5 DATE-TIME
+(defun time? ()
+  (hook? (lambda (x)
+           (destructuring-bind (hour-digits minute-digits second-digits time-utc) x
+             (let ((hour (digits-to-number hour-digits))
+                   (minute (+ (* 10 (first minute-digits)) (second minute-digits)))
+                   (second (+ (* 10 (first second-digits)) (second second-digits))))
+               (list hour minute second time-utc))))
+         (seq-list? (times? (hook? #'digit-char-p (digit?)) 2)
+                    (times? (hook? #'digit-char-p (digit?)) 2)
+                    (times? (hook? #'digit-char-p (digit?)) 2)
+                    (opt? #\Z))))
+
+(defun date-time? ()
+  (named-seq?
+   (<- date (date?))
+   #\T
+   (<- time (time?))
+   (list date time)))
+
+;; 3.3.6 DURATION
+(defun duration-second? ()
+  (named-seq?
+   (<- seconds (nat?))
+   #\S
+   (list :seconds seconds)))
+
+(defun duration-minute? ()
+  (hook? (lambda (x)
+           (destructuring-bind (minutes dur-second) x
+             (append (list :minutes minutes)
+                     dur-second)))
+         (named-seq?
+          (<- minutes (nat?))
+          #\M
+          (<- seconds (opt? (duration-second?)))
+          (list minutes seconds))))
+
+(defun duration-hour? ()
+  (hook? (lambda (x)
+           (destructuring-bind (hours dur-minute) x
+             (append (list :hours hours) dur-minute)))
+         (named-seq?
+          (<- hours (nat?))
+          #\H
+          (<- minutes (opt? (duration-minute?)))
+          (list hours minutes))))
+
+(defun duration-time? ()
+  (named-seq?
+   #\T
+   (<- dur-time (choices (duration-hour?)
+                         (duration-minute?)
+                         (duration-second?)))
+   dur-time))
+
+(defun duration? ()
+  (hook? (lambda (x)
+           (destructuring-bind (negative dur-weeks-days-or-time)
+               x
+             (list negative dur-weeks-days-or-time)))
+         (named-seq?
+          (<- negative (hook? (lambda (x) (when (eq x #\-) t))
+                              (opt? (choice #\+ #\-))))
+          #\P
+          (<- dur-weeks-days-or-time
+              (choices
+               (hook? (lambda (dur-weeks)
+                        (list :weeks dur-weeks))
+                      (named-seq?
+                       (<- dur-weeks (nat?))
+                       #\W
+                       dur-weeks))
+               (hook? (lambda (x)
+                        (destructuring-bind (dur-days dur-time)
+                            x
+                          (list :days dur-days :time dur-time)))
+                      (named-seq?
+                       (<- dur-days (nat?))
+                       #\D
+                       (<- dur-time (opt? (duration-time?)))
+                       (list dur-days dur-time)))
+               (hook? (lambda (dur-time)
+                        (list :time dur-time))
+                      (duration-time?))))
+          (list negative dur-weeks-days-or-time))))
+
+(defun parse-duration (string)
+  (parse-string* (duration?) string))
+
+;; 3.3.9 PERIOD
+
+(defun period? ()
+  (named-seq?
+   (<- start (date-time?))
+   #\/
+   (<- end-or-duration (choice1 (hook? (lambda (date-time)
+                                         (list :date-time date-time))
+                                       (date-time?))
+                                (hook? (lambda (duration)
+                                         (list :duration duration))
+                                       (duration?))))
+   (list start end-or-duration)))
+
+(defun parse-period (string)
+  (parse-string* (period?) string))
+
+(defun make-period-node (string)
+  (let ((node (cxml-stp:make-element "period" *ical-namespace*)))
+    (let ((parsed (parse-period string)))
+      (destructuring-bind (start end) parsed
+        (destructuring-bind ((year month day)
+                             (hours minute second utc))
+            start
+          (stp:append-child
+           node
+           (make-text-node "start"
+                           (format nil "~2,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0D"
+                                   year month day hours minute second))))
+        (destructuring-bind (&key date-time duration) end
+          (cond
+            (date-time
+             (destructuring-bind ((year month day)
+                                  (hours minute second utc))
+                 date-time
+               (stp:append-child
+                node
+                (make-text-node "end"
+                                (format nil "~2,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0D"
+                                        year month day hours minute second)))))
+            (duration
+             (stp:append-child
+              node
+              (make-text-node
+               "duration"
+               (destructuring-bind (negative (&key weeks days time))
+                   duration
+                 (cond
+                   (weeks (format nil "~:[~;-~]P~D" negative weeks))
+                   (t
+                    (destructuring-bind (&key hours minutes seconds) time
+                      (format nil "~:[~;-~]P~@[~DD~]~@[~DH~]~@[~DM~]~@[~DS~]"
+                              negative days hours minutes seconds))))))))))))
+    node))
 
 
 ;; 3.6 Calendar Components
@@ -422,7 +539,7 @@
            (attendee . property-attendee)
            (comment . property-comment)
            #+nil (rstatus . property-rstatus)
-           #+nil (freebusy . property-freebusy)))
+           (freebusy . property-freebusy)))
     hash))
 
 (defun handle-vfreebusy-property-line (result)
@@ -724,6 +841,18 @@
 ;; 3.8.2 Date and Time Component Properties
 
 ;;; Support Functions
+(defun convert-icalendar-date-to-xcal (string)
+  (parse-string* (date?) string))
+
+(defun convert-icalendar-date-time-to-xcal (string)
+  (parse-string* (date-time?) string))
+
+(defun convert-icalendar-utc-offset-to-xcal (string)
+  (destructuring-bind (hour minute second)
+      (parse-string* (utc-offset?) string)
+    (format nil "~:[~;-~]~2,'0D:~2,'0D~@[:~2,'0D~]"
+            (minusp hour) (abs hour) minute second)))
+
 (defun make-date-node (element-tag string)
   (stp:append-child
    (stp:make-element (string-downcase element-tag) *ical-namespace*)
@@ -803,6 +932,18 @@
 (def-generic-property property-duration "duration" nil "duration")
 
 ;; 3.8.2.6 Free/Busy Time FIXME!!!
+(defun property-freebusy (result)
+  (destructuring-bind
+      (group name params value)
+      result
+    (declare (ignore group name))
+    (let ((node (cxml-stp:make-element "freebusy" *ical-namespace*))
+          (param-element (extract-parameters params '(fbtypeparam))))
+      (when (plusp (cxml-stp:number-of-children param-element))
+        (cxml-stp:append-child node param-element))
+      (reduce #'cxml-stp:append-child
+              (mapcar #'make-period-node (split-string value))
+              :initial-value node))))
 
 ;; 3.8.2.7 Time Transparency
 (def-generic-property property-transp "transp" nil "text"
