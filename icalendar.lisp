@@ -309,8 +309,10 @@
                    (weeks (format nil "~:[~;-~]P~D" negative weeks))
                    (t
                     (destructuring-bind (&key hours minutes seconds) time
-                      (format nil "~:[~;-~]P~@[~DD~]~@[~DH~]~@[~DM~]~@[~DS~]"
-                              negative days hours minutes seconds))))))))))))
+                      (format nil "~:[~;-~]P~@[~DD~]~:[~;T~]~@[~DH~]~@[~DM~]~@[~DS~]"
+                              negative days
+                              (or hours minutes seconds)
+                              hours minutes seconds))))))))))))
     node))
 
 
@@ -360,7 +362,7 @@
            (categories . property-categories)
            (comment . property-comment)
            (contact . property-contact)
-           #+nil (exdate property-exdate)
+           (exdate property-exdate)
            #+nil (rstatus property-rstatus)
            (related . property-related)
            (resources . property-resources])
@@ -429,7 +431,7 @@
            (categories . property-categories)
            (comment . property-comment)
            (contact . property-contact)
-           #+nil (exdate . property-exdate)
+           (exdate . property-exdate)
            #+nil (rstatus . property-rstatus)
            (related . property-related)
            (resources . property-resources])
@@ -493,7 +495,7 @@
            (comment . property-comment)
            (contact . property-contact)
            (description . property-description) 
-           #+nil (exdate . property-exdate)
+           (exdate . property-exdate)
            (related . property-related)
            #+nil (rdate property-rdate)
            #+nil (rstatus . property-rstatus)))
@@ -931,7 +933,7 @@
 ;; 3.8.2.5 Duration
 (def-generic-property property-duration "duration" nil "duration")
 
-;; 3.8.2.6 Free/Busy Time FIXME!!!
+;; 3.8.2.6 Free/Busy Time
 (defun property-freebusy (result)
   (destructuring-bind
       (group name params value)
@@ -1033,7 +1035,8 @@
 
 ;; 3.8.5 Recurrence Component Properties
 
-;; 3.8.5.1 Exception Date/Times TBD FIXME!
+;; 3.8.5.1 Exception Date/Times
+(def-date-time-or-date-property property-exdate "exdate" '(tzidparam))
 
 ;; 3.8.5.2 Recurrence Date/Times TBD FIXME!
 
