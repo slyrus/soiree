@@ -445,19 +445,56 @@
       (when fn
         (funcall fn result)))))
 
+(defparameter *tz-property-dispatch*
+  (let ((hash (make-hash-table :test 'equal)))
+    (map nil (lambda (x)
+               (setf (gethash (car x) hash) (cdr x)))
+         '((dtstart)
+           (tzoffsetinfo . property-tzoffsetinfo)
+           (tzoffsetfrom . property-tzoffsetfrom)
+           #+nil (rrule . property-rrule)
+           (comment . property-comment)
+           #+nil (rdate . property-rdate)
+           (tzname . property-tzname)))
+    hash))
+
+(defun handle-tz-property-line (result)
+  (destructuring-bind (group name params value) result
+       (declare (ignore group params value))
+    (let ((fn (gethash (intern (string-upcase name) :soiree-icalendar)
+                       *tz-property-dispatch*)))
+      (when fn
+        (funcall fn result)))))
+
 (defun standardc? ()
   (named-seq?
    "BEGIN" ":" "STANDARD" #\Return #\Newline
    (<- properties (many? (property-line?)))
    "END" ":" "STANDARD" #\Return #\Newline
-   (stp:make-element "standard" *ical-namespace*)))
+   (stp:append-child
+    (stp:make-element "standard" *ical-namespace*)
+    (reduce (lambda (element x)
+              (let ((x (handle-tz-property-line x)))
+                (if (and x (not (consp x)))
+                    (stp:append-child element x)
+                    element)))
+            properties
+            :initial-value (stp:make-element "properties" *ical-namespace*)))))
 
 (defun daylightc? ()
   (named-seq?
    "BEGIN" ":" "DAYLIGHT" #\Return #\Newline
    (<- properties (many? (property-line?)))
    "END" ":" "DAYLIGHT" #\Return #\Newline
-   (stp:make-element "daylight" *ical-namespace*)))
+   (stp:append-child
+    (stp:make-element "daylight" *ical-namespace*)
+    (reduce (lambda (element x)
+              (let ((x (handle-tz-property-line x)))
+                (if (and x (not (consp x)))
+                    (stp:append-child element x)
+                    element)))
+            properties
+            :initial-value (stp:make-element "properties" *ical-namespace*)))))
 
 ;;; FIXME!!! Really handle daylight and standard components!
 (defun vtimezone? ()
@@ -754,7 +791,7 @@
 (def-generic-property property-tzid "tzid" nil "text")
 
 ;; 3.8.3.2 Time Zone Name
-(def-generic-property property-tzname "tzname" '(language-param) "text")
+(def-generic-property property-tzname "tzname" '(languageparam) "text")
 
 ;; 3.8.3.3 Time Zone Offset From
 (def-generic-property property-tzoffsetfrom "tzoffsetfrom" nil "utc-offset")
