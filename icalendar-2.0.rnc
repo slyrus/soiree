@@ -369,7 +369,7 @@ value-uri = element uri {
 # 3.3.14 UTC-OFFSET
 
 value-utc-offset = element utc-offset {
-    xsd:string { pattern = "(+|-)\d\d:\d\d(:\d\d)?" }
+    xsd:string { pattern = "(\+|-)\d\d:\d\d(:\d\d)?" }
 }
 
 # UNKNOWN
