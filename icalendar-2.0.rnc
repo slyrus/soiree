@@ -222,9 +222,9 @@ value-date-time = element date-time {
 
 pattern-duration = xsd:string {
     pattern = "(\+|-)?P((\d+W)|(\d+D))?"
-            ~ "(T(\d+H(\d+M)?(\d+S)?)|"
-            ~   "T(\d+M(\d+S)?)|"
-            ~   "T(\d+S))?"
+            ~ "(T((\d+H(\d+M)?(\d+S)?)|"
+            ~    "(\d+M(\d+S)?)|"
+            ~    "(\d+S)))?"
 }
 
 value-duration = element duration {
