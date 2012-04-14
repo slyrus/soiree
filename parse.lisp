@@ -55,6 +55,12 @@
 (def-cached-parser non-ascii?
   (sat #'non-ascii-p))
 
+(defun non-cr-p (char)
+  (/= (char-code #\Return) (char-code char)))
+
+(def-cached-parser not-cr?
+  (sat #'non-cr-p))
+
 (defun wsp-p (char)
   (or (eql char #\space)
       (eql char #\tab)))
@@ -243,7 +249,7 @@
           (zero)
           (result name)))))
 
-(defun property-line? ()
+(defun %property-line? ()
   ;; [group "."] name *(";" param) ":" value CRLF
   (named-seq?
    (<- group (opt? (hook?
@@ -255,9 +261,21 @@
                       (<- param (param?))
                       param)))
    ":"
-   (<- value (soiree-parse::value?))
-   (<- long-lines (many? (soiree-parse::long-line-extension?)))
-   (seq-list? #\Return #\Newline)
+   (<- value (value?))
    (when name
-     (list group name params (apply #'concatenate 'string value long-lines)))))
+     (list group name params value))))
 
+
+(defun property-line? ()
+  ;; [group "."] name *(";" param) ":" value CRLF
+  (mdo
+    (<- first-line (between? (choices (vchar?) (wsp?) (non-ascii?))
+                             1 nil 'string))
+    (<- long-lines (many? (long-line-extension?)))
+    (seq-list? #\Return #\Newline)
+    (let ((parsed
+            (parse-string* (%property-line?)
+                           (apply #'concatenate 'string first-line long-lines))))
+      (if parsed
+          (result parsed)
+          (zero)))))
