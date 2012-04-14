@@ -260,16 +260,19 @@
 
 ;; 3.3.9 PERIOD
 
+(defun date-time-or-date? ()
+  (choice1 (hook? (lambda (date-time)
+                    (list :date-time date-time))
+                  (date-time?))
+           (hook? (lambda (duration)
+                    (list :duration duration))
+                  (duration?))))
+
 (defun period? ()
   (named-seq?
    (<- start (date-time?))
    #\/
-   (<- end-or-duration (choice1 (hook? (lambda (date-time)
-                                         (list :date-time date-time))
-                                       (date-time?))
-                                (hook? (lambda (duration)
-                                         (list :duration duration))
-                                       (duration?))))
+   (<- end-or-duration (date-time-or-date?))
    (list start end-or-duration)))
 
 (defun parse-period (string)
@@ -354,7 +357,7 @@
            (transp . property-transp)
            (url . property-url)
            (recurid . recurid) 
-           #+nil (rrule property-rrule)
+           (rrule . property-rrule)
            (dtend . property-dtend) 
            (duration property-duration)
            (attach . property-attach)
@@ -425,7 +428,7 @@
            (status . property-status-todo)
            (summary . property-summary)
            (url . property-url)
-           #+nil (rrule . property-rrule)
+           (rrule . property-rrule)
            (attach . property-attach)
            (attendee . property-attendee)
            (categories . property-categories)
@@ -488,7 +491,7 @@
            (status . property-status-journal)
            (summary . property-summary)
            (url . property-url)
-           #+nil (rrule . property-rrule)
+           (rrule . property-rrule)
            (attach . property-attach)
            (attendee . property-attendee)
            (categories . property-categories)
@@ -593,7 +596,7 @@
          '((dtstart . property-dtstart)
            (tzoffsetfrom . property-tzoffsetfrom)
            (tzoffsetto . property-tzoffsetto)
-           #+nil (rrule . property-rrule)
+           (rrule . property-rrule)
            (comment . property-comment)
            #+nil (rdate . property-rdate)
            (tzname . property-tzname)))
@@ -1040,7 +1043,56 @@
 
 ;; 3.8.5.2 Recurrence Date/Times TBD FIXME!
 
-;; 3.8.5.3 Recurrence Rule TBD FIXME!
+;; 3.8.5.3 Recurrence Rule
+
+(defun parse-value-recur (string)
+  (let ((rules (split-string string :delimiter #\;)))
+    (let ((pairs
+            (mapcan (lambda (x)
+                      (destructuring-bind (pair-key pair-value)
+                          (split-string x :delimiter #\=)
+                        (list (intern (string-upcase pair-key) :keyword)
+                              pair-value)))
+                    rules)))
+      (destructuring-bind
+          (&key freq until count interval bysecond byminute
+                byhour byday bymonthday byyearday byweekno
+                bymonth bysetpos wkst)
+          pairs
+        (append
+         (when freq (list (make-text-node "freq" freq)))
+         (when until
+           (destructuring-bind (&key date-time date)
+               (parse-string* (date-time-or-date?) until)
+             (cond (date (list (make-date-node "until" until)))
+                   (date-time (list (make-date-time-node "until" until))))))
+         (when count (list (make-text-node "count" count)))
+         (when interval (list (make-text-node "interval" interval)))
+         (when bysecond (list (make-text-node "bysecond" bysecond)))
+         (when byminute (list (make-text-node "byminute" byminute)))
+         (when byhour (list (make-text-node "byhour" byhour)))
+         (when byday (list (make-text-node "byday" byday)))
+         (when bymonthday (list (make-text-node "bymonthday" bymonthday)))
+         (when byyearday (list (make-text-node "byyearday" byyearday)))
+         (when byweekno (list (make-text-node "byweekno" byweekno)))
+         (when bymonth (list (make-text-node "bymonth" bymonth)))
+         (when bysetpos (list (make-text-node "bysetpos" bysetpos)))
+         (when wkst (list (make-text-node "wkst" wkst))))))))
+
+(defun property-rrule (result)
+  (destructuring-bind (group name params value) result
+    (declare (ignore group name))
+    (let ((node (cxml-stp:make-element "rrule" *ical-namespace*))
+          (param-element (extract-parameters params nil)))
+      (when (plusp (cxml-stp:number-of-children param-element))
+        (cxml-stp:append-child node param-element))
+      (when-let (rules (parse-value-recur value))
+        (stp:append-child
+         node
+         (reduce #'stp:append-child
+                 (parse-value-recur value)
+                 :initial-value (stp:make-element "recur" *ical-namespace*))))
+      node)))
 
 ;; 3.8.6 Alarm Component Properties
 
