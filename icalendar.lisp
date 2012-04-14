@@ -1,7 +1,6 @@
 
 (cl:defpackage :soiree-icalendar
-  (:use :common-lisp :parser-combinators :soiree :soiree-parse)
-  (:shadow #:class #:method))
+  (:use :common-lisp :parser-combinators :soiree :soiree-parse))
 
 (cl:in-package :soiree-icalendar)
 
@@ -320,13 +319,6 @@
 
 
 ;; 3.6 Calendar Components
-
-;; FIXME these next two should get moved down to the properties section!
-(defun calscale (result) (text-content result))
-(defun method (result) (text-content result))
-
-;; FIXME flesh out calprop support
-(defun calprop? () (property-line?))
 
 (defun component? ()
   (choices (vevent?)
@@ -747,6 +739,25 @@
               `(stp:append-child
                 node
                 (make-text-node ,value-node-type value)))))))
+
+;; 3.7 Calendar Properties
+
+;; 3.7.1 Calendar Scale
+(def-generic-property property-calscale "calscale" nil "text"
+  :allowed-values '("GREGORIAN"))
+
+;; 3.7.2 Method
+(def-generic-property property-method "method" nil "text")
+
+;; 3.7.3 Product Identifier
+(def-generic-property property-prodid "prodid" nil "text")
+
+;; 3.7.4 Version
+(def-generic-property property-version "version" nil "text"
+  :allowed-values '("2.0"))
+
+
+;; 3.8 Component Properties
 
 ;; 3.8.1 Descriptive Component Properties
 
@@ -1171,34 +1182,53 @@
               (parse-request-status value)
               :initial-value node))))
 
+
+(defparameter *vcalendar-property-dispatch*
+  (let ((hash (make-hash-table :test 'equal)))
+    (map nil (lambda (x)
+               (setf (gethash (car x) hash) (cdr x)))
+         '((prodid . property-prodid)
+           (version . property-version)
+           (calscale . property-calscale)
+           (method . property-method)
+           ))
+    hash))
+
+(defun handle-vcalendar-property-line (result)
+  (destructuring-bind (group name params value) result
+       (declare (ignore group params value))
+    (let ((fn (gethash (intern (string-upcase name) :soiree-icalendar)
+                       *vcalendar-property-dispatch*)))
+      (when fn
+        (funcall fn result)))))
+
+
 ;;; Main Calendar Parsing Entry
 (defun vcalendar? ()
   (named-seq?
    "BEGIN" ":" "VCALENDAR" #\Return #\Newline
-   (<- calprops (many? (calprop?)))
-   (<- content (many1? (component?)))
+   (<- properties (many? (property-line?)))
+   (<- components (many1? (component?)))
    "END" ":" "VCALENDAR" #\Return #\Newline
-   
-   (stp:append-child
-    (stp:append-child
-     (stp:make-element "vcalendar" *ical-namespace*)
-     ;; FIXME! We're not really parsing the properties, just cheating here!
+   (let ((vcalendar-node (stp:make-element "vcalendar" *ical-namespace*)))
      (stp:append-child
-      (stp:append-child
-       (stp:make-element "properties" *ical-namespace*)
-       (stp:append-child
-        (stp:make-element "version" *ical-namespace*)
-        (make-text-nodes "text" "2.0")))
-      (stp:append-child
-       (stp:make-element "prodid" *ical-namespace*)
-       (make-text-nodes "text" "bar"))))
-    (reduce (lambda (element x)
-              (if (and x (not (consp x)))
-                  (stp:append-child element x)
-                  element))
-            content
-            :initial-value
-            (stp:make-element "components" *ical-namespace*)))))
+      vcalendar-node
+      (reduce (lambda (element x)
+                (let ((x (handle-vcalendar-property-line x)))
+                  (if (and x (not (consp x)))
+                      (stp:append-child element x)
+                      element)))
+              properties
+              :initial-value (stp:make-element "properties" *ical-namespace*)))
+     (stp:append-child
+      vcalendar-node
+      (reduce (lambda (element x)
+                (if (and x (not (consp x)))
+                    (stp:append-child element x)
+                    element))
+              components
+              :initial-value
+              (stp:make-element "components" *ical-namespace*))))))
 
 (defun icalendar? ()
   (many1? (named-seq?
