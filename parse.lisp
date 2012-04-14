@@ -261,7 +261,7 @@
                       (<- param (param?))
                       param)))
    ":"
-   (<- value (value?))
+   (<- value (opt? (value?)))
    (when name
      (list group name params value))))
 
