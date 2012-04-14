@@ -1084,20 +1084,24 @@
 (def-generic-property property-seq "sequence" nil "integer")
 
 ;; 3.8.8.3 Request Status
+(defun parse-request-status (value)
+  "Returns a list of three nodes: code, description and data."
+  (destructuring-bind (code desc &optional data)
+      (split-string value :delimiter #\;)
+    (list (make-text-node "code" code)
+          (make-text-node "description" desc)
+          (make-text-node "data" data))))
+
 (defun property-rstatus (result)
-  (destructuring-bind
-      (group name params value)
-      result
+  (destructuring-bind (group name params value) result
     (declare (ignore group name))
     (let ((node (cxml-stp:make-element "request-status" *ical-namespace*))
           (param-element (extract-parameters params '(languageparam))))
       (when (plusp (cxml-stp:number-of-children param-element))
         (cxml-stp:append-child node param-element))
-      (destructuring-bind (code desc &optional data)
-          (split-string value :delimiter #\;)
-        (cxml-stp:append-child node (make-text-node "code" code))
-        (cxml-stp:append-child node (make-text-node "description" desc))
-        (cxml-stp:append-child node (make-text-node "data" data))))))
+      (reduce #'stp:append-child
+              (parse-request-status value)
+              :initial-value node))))
 
 ;;; Main Calendar Parsing Entry
 (defun vcalendar? ()
