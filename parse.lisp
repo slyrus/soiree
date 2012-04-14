@@ -55,12 +55,6 @@
 (def-cached-parser non-ascii?
   (sat #'non-ascii-p))
 
-(defun non-cr-p (char)
-  (/= (char-code #\Return) (char-code char)))
-
-(def-cached-parser not-cr?
-  (sat #'non-cr-p))
-
 (defun wsp-p (char)
   (or (eql char #\space)
       (eql char #\tab)))
