@@ -369,7 +369,7 @@
            (request-status . property-rstatus)
            (related . property-related)
            (resources . property-resources])
-           #+nil (rdate property-rdate)))
+           (rdate . property-rdate)))
     hash))
 
 (defun handle-vevent-property-line (result)
@@ -438,7 +438,7 @@
            (request-status . property-rstatus)
            (related . property-related)
            (resources . property-resources])
-           #+nil (rdate property-rdate)))
+           (rdate . property-rdate)))
     hash))
 
 (defun handle-vtodo-property-line (result)
@@ -500,7 +500,7 @@
            (description . property-description) 
            (exdate . property-exdate)
            (related . property-related)
-           #+nil (rdate property-rdate)
+           (rdate . property-rdate)
            (request-status . property-rstatus)))
     hash))
 
@@ -598,7 +598,7 @@
            (tzoffsetto . property-tzoffsetto)
            (rrule . property-rrule)
            (comment . property-comment)
-           #+nil (rdate . property-rdate)
+           (rdate . property-rdate)
            (tzname . property-tzname)))
     hash))
 
@@ -1041,10 +1041,26 @@
 ;; 3.8.5.1 Exception Date/Times
 (def-date-time-or-date-property property-exdate "exdate" '(tzidparam))
 
-;; 3.8.5.2 Recurrence Date/Times TBD FIXME!
+;; 3.8.5.2 Recurrence Date/Times
+(defun property-rdate (result)
+  (destructuring-bind (group name params value) result
+    (declare (ignore group name))
+    (let ((node (cxml-stp:make-element "rdate" *ical-namespace*))
+          (param-element (extract-parameters params '(tzidparam))))
+      (when (plusp (cxml-stp:number-of-children param-element))
+        (cxml-stp:append-child node param-element))
+      (let ((value-type
+             (or
+              (caadar (keep "value" params :test #'string-equal :key #'car)))))
+        (cond ((string-equal value-type "date")
+               (make-date-node "rdate" value))
+              ((string-equal value-type "period")
+               (stp:append-child
+                (stp:make-element "rdate" *ical-namespace*)
+                (make-period-node value)))
+              (t (make-date-time-node "rdate" value)))))))
 
 ;; 3.8.5.3 Recurrence Rule
-
 (defun parse-value-recur (string)
   (let ((rules (split-string string :delimiter #\;)))
     (let ((pairs
