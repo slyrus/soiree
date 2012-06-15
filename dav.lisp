@@ -7,6 +7,7 @@
            #:dav-user
            #:dav-password
            #:dav-url
+           #:dav-server-connection-url
 
            #:*dav-xml-namespace*
            #:*carddav-xml-namespace*
@@ -33,6 +34,12 @@
   user
   password
   url)
+
+(defun dav-server-connection-url (connection &optional (url (dav-url connection)))
+  (concatenate 'string "https://"
+               (dav-host connection) ":"
+               (format nil "~A" (dav-port connection))
+               url))
 
 (defun write-stp-string (node)
   (let* ((stream (make-string-output-stream))

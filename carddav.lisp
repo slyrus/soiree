@@ -12,12 +12,7 @@
 (defun get-addressbook-home-set (connection)
   (let ((result
           (drakma:http-request
-           (concatenate 'string 
-                        "https://"
-                        (dav-host connection)
-                        ":"
-                        (format nil "~A" (dav-port connection))
-                        (dav-url connection))
+           (dav-server-connection-url connection)
            :force-ssl t
            :method :propfind
            :basic-authorization `(,(dav-user connection) ,(dav-password connection))
@@ -36,12 +31,7 @@
 (defun get-addressbook-collections (connection home-set)
   (let ((response
           (drakma:http-request
-           (concatenate 'string 
-                        "https://"
-                        (dav-host connection)
-                        ":"
-                        (format nil "~A" (dav-port connection))
-                        home-set)
+           (dav-server-connection-url connection home-set)
            :force-ssl t
            :method :propfind
            :basic-authorization `(,(dav-user connection) ,(dav-password connection))
@@ -63,12 +53,7 @@
 
 (defun get-addressbook-collection (connection collection)
   (let ((response (drakma:http-request
-                   (concatenate 'string 
-                                "https://"
-                                (dav-host connection)
-                                ":"
-                                (format nil "~A" (dav-port connection))
-                                collection)
+                   (dav-server-connection-url connection collection)
                    :force-ssl t
                    :method :report
                    :basic-authorization `(,(dav-user connection) ,(dav-password connection))
@@ -87,12 +72,7 @@
                                           &key (match-type :contains)
                                                (filter-field "FN"))
   (let ((response (drakma:http-request
-                   (concatenate 'string 
-                                "https://"
-                                (dav-host connection)
-                                ":"
-                                (format nil "~A" (dav-port connection))
-                                collection)
+                   (dav-server-connection-url connection collection)
                    :force-ssl t
                    :method :report
                    :basic-authorization `(,(dav-user connection) ,(dav-password connection))
