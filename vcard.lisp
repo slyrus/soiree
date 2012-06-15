@@ -222,8 +222,11 @@
                           params
                           (list #'param-language #'param-sort-as
                                 #'param-altid))))
-      (destructuring-bind (family-names given-names additional-names
-                           honorific-prefixes honorific-suffixes)
+      (destructuring-bind (family-names
+                           &optional (given-names "")
+                                     (additional-names "")
+                                     (honorific-prefixes "")
+                                     (honorific-suffixes ""))
           (split-string value :delimiter #\;)
         (reduce (lambda (parent child)
                   (stp:append-child parent child))
