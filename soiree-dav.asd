@@ -8,4 +8,5 @@
   :depends-on (soiree drakma cxml cxml-stp xpath)
   :components
   ((:file "dav")
-   (:file "carddav")))
+   (:file "carddav")
+   (:file "caldav")))

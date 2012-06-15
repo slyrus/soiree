@@ -3,6 +3,12 @@
 
 (defparameter *carddav-xml-namespace* "urn:ietf:params:xml:ns:carddav")
 
+(defmacro with-carddav-namespaces (&body body)
+  `(xpath:with-namespaces (("C" *carddav-xml-namespace*)
+                           (nil *dav-xml-namespace*))
+    
+     ,@body))
+
 (defun get-addressbook-home-set (connection)
   (let ((result
           (drakma:http-request

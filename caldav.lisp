@@ -3,6 +3,12 @@
 
 (defparameter *caldav-xml-namespace* "urn:ietf:params:xml:ns:caldav")
 
+(defmacro with-caldav-namespaces (&body body)
+  `(xpath:with-namespaces (("C" *caldav-xml-namespace*)
+                           (nil *dav-xml-namespace*))
+     
+     ,@body))
+
 (defun get-calendar-home-set (connection)
   (let ((result
           (drakma:http-request

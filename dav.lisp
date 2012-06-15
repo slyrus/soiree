@@ -10,10 +10,18 @@
 
            #:*dav-xml-namespace*
            #:*carddav-xml-namespace*
+           #:*caldav-xml-namespace*
+           
+           #:with-carddav-namespaces
 
-           #:get-addressbook-collection
+           #:get-addressbook-home-set
            #:get-addressbook-collections
-           #:get-addressbook-home-set))
+           #:get-addressbook-collection
+           #:get-addressbook-collection-filter
+
+           #:get-calendar-home-set
+           #:get-calendar-collections
+           #:get-calendar-collection))
 
 (cl:in-package #:soiree-dav)
 
