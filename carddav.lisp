@@ -11,15 +11,11 @@
 
 (defun get-addressbook-home-set (connection)
   (let ((result
-          (drakma:http-request
-           (dav-server-connection-url connection)
-           :force-ssl t
-           :method :propfind
-           :basic-authorization `(,(dav-user connection) ,(dav-password connection))
-           :content (write-xmls-string
-                     `(("propfind" . ,*dav-xml-namespace*) nil
-                       (("prop" . ,*dav-xml-namespace*) nil
-                        (("addressbook-home-set" . ,*carddav-xml-namespace*) nil)))))))
+          (dav-request connection nil :propfind
+                       (write-xmls-string
+                        `(("propfind" . ,*dav-xml-namespace*) nil
+                          (("prop" . ,*dav-xml-namespace*) nil
+                           (("addressbook-home-set" . ,*carddav-xml-namespace*) nil)))))))
     (when result
       (let ((parsed (cxml:parse result (stp:make-builder))))
         (xpath:with-namespaces ((nil *dav-xml-namespace*)
@@ -30,16 +26,11 @@
 
 (defun get-addressbook-collections (connection home-set)
   (let ((response
-          (drakma:http-request
-           (dav-server-connection-url connection home-set)
-           :force-ssl t
-           :method :propfind
-           :basic-authorization `(,(dav-user connection) ,(dav-password connection))
-           :additional-headers '(("Depth" . 1))
-           :content
-            (write-xmls-string
-             `(("propfind" . ,*dav-xml-namespace*) nil
-               (("allprop" . ,*dav-xml-namespace*) nil))))))
+          (dav-request connection home-set :propfind
+                       (write-xmls-string
+                        `(("propfind" . ,*dav-xml-namespace*) nil
+                          (("allprop" . ,*dav-xml-namespace*) nil)))
+                                           :depth 1)))
     (when response
       (let ((parsed (cxml:parse response (stp:make-builder))))
         (xpath:with-namespaces ((nil *dav-xml-namespace*)
@@ -52,17 +43,13 @@
             parsed)))))))
 
 (defun get-addressbook-collection (connection collection)
-  (let ((response (drakma:http-request
-                   (dav-server-connection-url connection collection)
-                   :force-ssl t
-                   :method :report
-                   :basic-authorization `(,(dav-user connection) ,(dav-password connection))
-                   :content
-                   (write-xmls-string
-                    `(("addressbook-query" . ,*carddav-xml-namespace*) nil
-                      (("prop" . ,*dav-xml-namespace*) nil
-                       (("getetag" . ,*dav-xml-namespace*) nil)
-                       (("address-data" . ,*carddav-xml-namespace*) nil)))))))
+  (let ((response
+          (dav-request connection collection :report
+                       (write-xmls-string
+                        `(("addressbook-query" . ,*carddav-xml-namespace*) nil
+                          (("prop" . ,*dav-xml-namespace*) nil
+                           (("getetag" . ,*dav-xml-namespace*) nil)
+                           (("address-data" . ,*carddav-xml-namespace*) nil)))))))
     (when response
       (cxml:parse response (stp:make-builder)))))
 
@@ -71,24 +58,20 @@
                                           match-text
                                           &key (match-type :contains)
                                                (filter-field "FN"))
-  (let ((response (drakma:http-request
-                   (dav-server-connection-url connection collection)
-                   :force-ssl t
-                   :method :report
-                   :basic-authorization `(,(dav-user connection) ,(dav-password connection))
-                   :content
-                   (write-xmls-string
-                    `(("addressbook-query" . ,*carddav-xml-namespace*) nil
-                      (("prop" . ,*dav-xml-namespace*) nil
-                       (("getetag" . ,*dav-xml-namespace*) nil)
-                       (("address-data" . ,*carddav-xml-namespace*) nil))
-                      (("filter" . ,*carddav-xml-namespace*) nil
-                       (("prop-filter" . ,*carddav-xml-namespace*)
-                        (("name" ,filter-field))
-                        (("text-match" . ,*carddav-xml-namespace*)
-                         (("collation" "i;unicode-casemap")
-                          ("match-type" ,(string-downcase (symbol-name match-type))))
-                         ,match-text))))))))
+  (let ((response
+          (dav-request connection collection :report
+                       (write-xmls-string
+                        `(("addressbook-query" . ,*carddav-xml-namespace*) nil
+                          (("prop" . ,*dav-xml-namespace*) nil
+                           (("getetag" . ,*dav-xml-namespace*) nil)
+                           (("address-data" . ,*carddav-xml-namespace*) nil))
+                          (("filter" . ,*carddav-xml-namespace*) nil
+                           (("prop-filter" . ,*carddav-xml-namespace*)
+                            (("name" ,filter-field))
+                            (("text-match" . ,*carddav-xml-namespace*)
+                             (("collation" "i;unicode-casemap")
+                              ("match-type" ,(string-downcase (symbol-name match-type))))
+                             ,match-text))))))))
     (when response
       (cxml:parse response (stp:make-builder)))))
 

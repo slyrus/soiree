@@ -11,15 +11,11 @@
 
 (defun get-calendar-home-set (connection)
   (let ((result
-          (drakma:http-request
-           (dav-server-connection-url connection)
-           :force-ssl t
-           :method :propfind
-           :basic-authorization `(,(dav-user connection) ,(dav-password connection))
-           :content (write-xmls-string
-                     `(("propfind" . ,*dav-xml-namespace*) nil
-                       (("prop" . ,*dav-xml-namespace*) nil
-                        (("calendar-home-set" . ,*caldav-xml-namespace*) nil)))))))
+          (dav-request connection nil :propfind
+                       (write-xmls-string
+                        `(("propfind" . ,*dav-xml-namespace*) nil
+                          (("prop" . ,*dav-xml-namespace*) nil
+                           (("calendar-home-set" . ,*caldav-xml-namespace*) nil)))))))
     (when result
       (let ((parsed (cxml:parse result (stp:make-builder))))
         (xpath:with-namespaces ((nil *dav-xml-namespace*)
@@ -30,16 +26,11 @@
 
 (defun get-calendar-collections (connection home-set)
   (let ((response
-          (drakma:http-request
-           (dav-server-connection-url connection home-set)
-           :force-ssl t
-           :method :propfind
-           :basic-authorization `(,(dav-user connection) ,(dav-password connection))
-           :additional-headers '(("Depth" . 1))
-           :content
-            (write-xmls-string
-             `(("propfind" . ,*dav-xml-namespace*) nil
-               (("allprop" . ,*dav-xml-namespace*) nil))))))
+          (dav-request connection home-set :propfind
+                       (write-xmls-string
+                        `(("propfind" . ,*dav-xml-namespace*) nil
+                          (("allprop" . ,*dav-xml-namespace*) nil)))
+                                           :depth 1)))
     (when response
       (let ((parsed (cxml:parse response (stp:make-builder))))
         (xpath:with-namespaces ((nil *dav-xml-namespace*)
@@ -51,16 +42,12 @@
             parsed)))))))
 
 (defun get-calendar-collection (connection collection)
-  (let ((response (drakma:http-request
-                   (dav-server-connection-url connection collection)
-                   :force-ssl t
-                   :method :report
-                   :basic-authorization `(,(dav-user connection) ,(dav-password connection))
-                   :content
-                   (write-xmls-string
-                    `(("calendar-query" . ,*caldav-xml-namespace*) nil
-                      (("prop" . ,*dav-xml-namespace*) nil
-                       (("getetag" . ,*dav-xml-namespace*) nil)
-                       (("calendar-data" . ,*caldav-xml-namespace*) nil)))))))
+  (let ((response
+          (dav-request connection collection :report
+                       (write-xmls-string
+                        `(("calendar-query" . ,*caldav-xml-namespace*) nil
+                          (("prop" . ,*dav-xml-namespace*) nil
+                           (("getetag" . ,*dav-xml-namespace*) nil)
+                           (("calendar-data" . ,*caldav-xml-namespace*) nil)))))))
     (when response
       (cxml:parse response (stp:make-builder)))))

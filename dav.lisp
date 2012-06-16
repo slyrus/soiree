@@ -1,7 +1,7 @@
 
 (cl:defpackage #:soiree-dav
   (:use #:cl #:soiree)
-  (:export #:make-dav-server-connection
+  (:export #:make-drakma-dav-server-connection
            #:dav-host
            #:dav-port
            #:dav-user
@@ -29,18 +29,43 @@
 
 (defparameter *dav-xml-namespace* "DAV:")
 
-(defstruct (dav-server-connection (:conc-name dav-))
-  host
-  port
-  user
-  password
-  url)
+(defclass dav-server-connection () 
+  ((host :initarg :host :accessor dav-host)
+   (port :initarg :port :accessor dav-port)
+   (user :initarg :user :accessor dav-user)
+   (password :initarg :password :accessor dav-password)
+   (url :initarg :url :accessor dav-url)))
+
+(defgeneric dav-request (connection url method content &key depth))
+
+(defclass drakma-dav-server-connection (dav-server-connection)
+  ((use-ssl :accessor dav-use-ssl-p :initarg :use-ssl :initform t)))
+
+(defun make-drakma-dav-server-connection (&key host port user password url)
+  (make-instance 'drakma-dav-server-connection
+                 :host host
+                 :port port
+                 :user user
+                 :password password
+                 :url url))
 
 (defun dav-server-connection-url (connection &optional (url (dav-url connection)))
   (concatenate 'string "https://"
                (dav-host connection) ":"
                (format nil "~A" (dav-port connection))
                url))
+
+(defmethod dav-request ((connection drakma-dav-server-connection) url method content
+                        &key depth)
+  (apply #'drakma:http-request
+         (apply #'dav-server-connection-url connection
+                (when url `(,url)))
+         :force-ssl (dav-use-ssl-p connection)
+         :method method
+         :basic-authorization `(,(dav-user connection) ,(dav-password connection))
+         :content content
+         (when depth
+           `(:additional-headers (("Depth" . ,depth))))))
 
 (defun write-stp-string (node)
   (let* ((stream (make-string-output-stream))
