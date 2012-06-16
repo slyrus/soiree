@@ -60,9 +60,9 @@
                    :content
                    (write-xmls-string
                     `(("addressbook-query" . ,*carddav-xml-namespace*) nil
-                      (("address-data" . ,*carddav-xml-namespace*) nil
-                       (("getetag" . ,*dav-xml-namespace*) nil
-                        (("prop" . ,*dav-xml-namespace*) nil))))))))
+                      (("prop" . ,*dav-xml-namespace*) nil
+                       (("getetag" . ,*dav-xml-namespace*) nil)
+                       (("address-data" . ,*carddav-xml-namespace*) nil)))))))
     (when response
       (cxml:parse response (stp:make-builder)))))
 

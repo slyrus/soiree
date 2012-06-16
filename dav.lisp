@@ -14,6 +14,7 @@
            #:*caldav-xml-namespace*
            
            #:with-carddav-namespaces
+           #:with-caldav-namespaces
 
            #:get-addressbook-home-set
            #:get-addressbook-collections

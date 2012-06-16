@@ -59,8 +59,8 @@
                    :content
                    (write-xmls-string
                     `(("calendar-query" . ,*caldav-xml-namespace*) nil
-                      (("calendar-data" . ,*caldav-xml-namespace*) nil
-                       (("getetag" . ,*dav-xml-namespace*) nil
-                        (("prop" . ,*dav-xml-namespace*) nil))))))))
+                      (("prop" . ,*dav-xml-namespace*) nil
+                       (("getetag" . ,*dav-xml-namespace*) nil)
+                       (("calendar-data" . ,*caldav-xml-namespace*) nil)))))))
     (when response
       (cxml:parse response (stp:make-builder)))))
