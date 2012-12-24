@@ -3,6 +3,7 @@
   (:use :common-lisp :parser-combinators)
   (:nicknames :vcard)
   (:export #:parse-vcard
+           #:parse-vcard-elements
            #:*vcard-namespace*
            #:*vcard-rng-pathname*
            #:*vcard-rng-schema*
