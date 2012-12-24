@@ -605,3 +605,9 @@
              (let ((element (stp:make-element "vcards" *vcard-namespace*)))
                (cxml-stp:add-extra-namespace element "" *vcard-namespace*)
                element)))))
+
+(defun pretty-print-vcard (vcard &optional stream)
+  (print vcard)
+  (with-vcard-namespace
+    (let ((fn (xpath:evaluate "fn" vcard)))
+      (print (xpath:string-value fn) stream))))
