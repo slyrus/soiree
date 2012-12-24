@@ -57,15 +57,18 @@
 
 (defmethod dav-request ((connection drakma-dav-server-connection) url method content
                         &key depth)
-  (apply #'drakma:http-request
-         (apply #'dav-server-connection-url connection
-                (when url `(,url)))
-         :force-ssl (dav-use-ssl-p connection)
-         :method method
-         :basic-authorization `(,(dav-user connection) ,(dav-password connection))
-         :content content
-         (when depth
-           `(:additional-headers (("Depth" . ,depth))))))
+  (multiple-value-bind (reply status server-headers)
+      (apply #'drakma:http-request
+             (apply #'dav-server-connection-url connection
+                    (when url `(,url)))
+             :force-ssl (dav-use-ssl-p connection)
+             :method method
+             :basic-authorization `(,(dav-user connection) ,(dav-password connection))
+             :content content
+             (when depth
+               `(:additional-headers (("Depth" . ,depth)))))
+    (declare (ignore status server-headers))
+    reply))
 
 (defun write-stp-string (node)
   (let* ((stream (make-string-output-stream))
