@@ -591,13 +591,16 @@
            properties
            :initial-value (stp:make-element "vcard" *vcard-namespace*))))
 
+(defun parse-vcard-elements (str)
+  (parse-string* (many1? (vcard?)) str))
+
 (defun parse-vcard (str)
   (let ((*default-namespace* *vcard-namespace*)
         (*current-vcard-version* nil)
         (*current-vcard-major-version-number* *default-major-version-number*))
     (stp:make-document
      (reduce #'stp:append-child
-             (parse-string* (many1? (vcard?)) str)
+             (parse-vcard-elements str)
              :initial-value
              (let ((element (stp:make-element "vcards" *vcard-namespace*)))
                (cxml-stp:add-extra-namespace element "" *vcard-namespace*)
