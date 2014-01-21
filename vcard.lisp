@@ -574,9 +574,12 @@
 
 (defun handle-content-line (result)
   (destructuring-bind (group name params value) result
-       (declare (ignore group params value))
     (let ((fn (gethash (string-upcase name) *content-dispatch*)))
-      (when fn (funcall fn result)))))
+      (if fn
+          (funcall fn result)
+          (when (search "X-" name :test #'char-equal :end2 (min 2 (length result)))
+            (progn (format t "~&Unhandled extension result line: ~A~&" result)
+                   nil))))))
 
 (defun vcard? ()
   (named-seq?
