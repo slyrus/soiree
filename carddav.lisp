@@ -34,12 +34,12 @@
     (when response
       (let ((parsed (cxml:parse response (stp:make-builder))))
         (xpath:with-namespaces ((nil *dav-xml-namespace*)
-                                ("C" "urn:ietf:params:xml:ns:caldav")
-                                ("C1" *carddav-xml-namespace*))
+                                ("CAL" "urn:ietf:params:xml:ns:caldav")
+                                ("CARD" *carddav-xml-namespace*))
           (xpath:map-node-set->list
            #'xpath:string-value
            (xpath:evaluate 
-            "/multistatus/response[propstat/prop/resourcetype/C1:addressbook]/href"
+            "/multistatus/response[propstat/prop/resourcetype/CARD:addressbook]/href"
             parsed)))))))
 
 (defun get-addressbook-collection (connection collection)
