@@ -560,7 +560,7 @@
 (defparameter *content-dispatch*
   (let ((hash (make-hash-table :test 'equal)))
     (map nil (lambda (x)
-               (setf (gethash (symbol-name x) hash) (symbol-function x)))
+               (setf (gethash (symbol-name x) hash) x))
          '(adr anniversary bday caladruri caluri categories
            clientpidmap email fburl
            fn geo impp key
