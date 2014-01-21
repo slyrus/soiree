@@ -597,9 +597,10 @@
 (defun parse-vcard-elements (str)
   (parse-string* (many1? (vcard?)) str))
 
-(defun parse-vcard (str)
+(defun parse-vcard (str &key strict-parsing)
   (let ((*default-namespace* *vcard-namespace*)
         (*current-vcard-version* nil)
+        (*strict-parsing* strict-parsing)
         (*current-vcard-major-version-number* *default-major-version-number*))
     (stp:make-document
      (reduce #'stp:append-child
