@@ -195,7 +195,11 @@
 
 (defun long-line-extension? ()
   (named-seq?
-   #\Return
+   ;; if we want to be strict here, we should enforce the #\Return
+   ;; #\Newline here, but it appears that at least some versions of
+   ;; Apple's Address Book/Contacts application doesn't add the
+   ;; #\return.
+   (opt? #\Return)
    #\Newline
    (wsp?)
    (<- value (value?))
@@ -215,7 +219,11 @@
    ":"
    (<- value (value?))
    (<- long-lines (many? (long-line-extension?)))
-   (seq-list? #\Return #\Newline)
+   ;; if we want to be strict here, we should enforce the #\Return
+   ;; #\Newline here, but it appears that at least some versions of
+   ;; Apple's Address Book/Contacts application doesn't add the
+   ;; #\return.   
+   (seq-list? (opt? #\Return) #\Newline)
    (when name
      (list group name params (apply #'concatenate 'string value long-lines)))))
 
