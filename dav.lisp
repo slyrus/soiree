@@ -56,7 +56,7 @@
                url))
 
 (defmethod dav-request ((connection drakma-dav-server-connection) url method content
-                        &key depth)
+                        &key depth (connection-timeout 120))
   (multiple-value-bind (reply status server-headers)
       (apply #'drakma:http-request
              (apply #'dav-server-connection-url connection
@@ -65,6 +65,7 @@
              :method method
              :basic-authorization `(,(dav-user connection) ,(dav-password connection))
              :content content
+             :connection-timeout connection-timeout
              (when depth
                `(:additional-headers (("Depth" . ,depth)))))
     (declare (ignore status server-headers))
