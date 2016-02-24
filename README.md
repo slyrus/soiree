@@ -13,6 +13,29 @@ parsers for the VCARD and iCalendar formats and represents the
 information in XML documents corresponding to the xCard and xCal
 specifications.
 
+# Prerequisistes
+
+Soiree requires the parser-combinators, cxml-stp, cxml-rng, and
+cl-base64 libraries. These can be loaded from quicklisp as follows:
+
+    ;; (ql:quickload '(parser-combinators cxml-stp cl-base64))
+
+    (ql:quickload '(parser-combinators cxml-stp cxml-rng cl-base64))
+
+NOTE!!! Ugly hack alert!!! The version of cxml-rng currently in
+Quicklisp, as of 2016-02-24, is from 2008 and does not work with the
+current release of SBCL. An optimization to the gray-stream handling code in SBCL exposed a bug in cxml-rng, which prevents cxml-rng from loading. A version of cxml-rng which contains the necessary fix can be found here:
+
+    http://www.lichteblau.com/git/cxml-rng.git
+
+Use that for now. An easy way to do that is as follows:
+
+    #!/bin/bash
+    cd ~/quicklisp/local-projects
+    git clone http://www.lichteblau.com/git/cxml-rng.git
+
+instead of (ql-quickload 'cxml-rng)
+
 # Getting started:
 
 To load soiree:
