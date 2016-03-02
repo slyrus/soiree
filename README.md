@@ -13,7 +13,7 @@ parsers for the VCARD and iCalendar formats and represents the
 information in XML documents corresponding to the xCard and xCal
 specifications.
 
-# Prerequisistes
+# Prerequisites
 
 Soiree requires the parser-combinators, cxml-stp, cxml-rng, and
 cl-base64 libraries. These can be loaded from quicklisp as follows:
