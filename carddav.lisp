@@ -59,19 +59,19 @@
                                           &key (match-type :contains)
                                                (filter-field "FN"))
   (let ((response
-          (dav-request connection collection :report
-                       (write-xmls-string
-                        `(("addressbook-query" . ,*carddav-xml-namespace*) nil
-                          (("prop" . ,*dav-xml-namespace*) nil
-                           (("getetag" . ,*dav-xml-namespace*) nil)
-                           (("address-data" . ,*carddav-xml-namespace*) nil))
-                          (("filter" . ,*carddav-xml-namespace*) nil
-                           (("prop-filter" . ,*carddav-xml-namespace*)
-                            (("name" ,filter-field))
-                            (("text-match" . ,*carddav-xml-namespace*)
-                             (("collation" "i;unicode-casemap")
-                              ("match-type" ,(string-downcase (symbol-name match-type))))
-                             ,match-text))))))))
+         (dav-request connection collection :report
+                      (write-xmls-string
+                       `(("addressbook-query" . ,*carddav-xml-namespace*) nil
+                         (("prop" . ,*dav-xml-namespace*) nil
+                          (("getetag" . ,*dav-xml-namespace*) nil)
+                          (("address-data" . ,*carddav-xml-namespace*) nil))
+                         (("filter" . ,*carddav-xml-namespace*) nil
+                          (("prop-filter" . ,*carddav-xml-namespace*)
+                           (("name" ,filter-field))
+                           (("text-match" . ,*carddav-xml-namespace*)
+                            (("collation" "i;unicode-casemap")
+                             ("match-type" ,(string-downcase (symbol-name match-type))))
+                            ,match-text))))))))
     (when response
       (cxml:parse response (stp:make-builder)))))
 
