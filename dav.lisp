@@ -77,9 +77,9 @@
     (stp:serialize node sink)
     (get-output-stream-string stream)))
 
-(defun write-xmls-string (node)
+(defun write-xmls-string (node &key (canonical t) (indentation nil))
   (let* ((stream (make-string-output-stream))
-         (sink (cxml:make-character-stream-sink stream :canonical nil :indentation 2)))
+         (sink (cxml:make-character-stream-sink stream :canonical canonical :indentation indentation)))
     (cxml-xmls:map-node sink node)
     (get-output-stream-string stream)))
 
