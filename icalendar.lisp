@@ -360,7 +360,7 @@
            (exdate . property-exdate)
            (request-status . property-rstatus)
            (related . property-related)
-           (resources . property-resources])
+           (resources . property-resources)
            (rdate . property-rdate)))
     hash))
 
@@ -429,7 +429,7 @@
            (exdate . property-exdate)
            (request-status . property-rstatus)
            (related . property-related)
-           (resources . property-resources])
+           (resources . property-resources)
            (rdate . property-rdate)))
     hash))
 
