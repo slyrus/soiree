@@ -50,7 +50,7 @@
   (seq-list? #\Return #\Newline))
 
 (defun non-ascii-p (char)
-  (<= #x80 (char-code char) #xff))
+  (<= #x80 (char-code char)))
 
 (def-cached-parser non-ascii?
   (sat #'non-ascii-p))
