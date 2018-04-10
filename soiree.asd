@@ -5,7 +5,7 @@
   :licence "BSD"
   :serial t
   :default-component-class cl-source-file
-  :depends-on (parser-combinators cxml-stp cxml-rng cl-base64)
+  :depends-on (parser-combinators cxml-stp cxml-rng cl-base64 local-time)
   :components
   ((:static-file "README.md")
    (:static-file "COPYRIGHT")
@@ -14,7 +14,8 @@
    (:file "parse")
    (:file "vcard")
    (:file "icalendar")
-   (:file "xcal")))
+   (:file "xcal")
+   (:file "time")))
 
 (cl:defpackage #:soiree-config (:export #:*base-directory*))
 
