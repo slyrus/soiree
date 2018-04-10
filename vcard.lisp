@@ -574,6 +574,7 @@
 
 (defun handle-content-line (result)
   (destructuring-bind (group name params value) result
+    (declare (ignore group params value))
     (let ((fn (gethash (string-upcase name) *content-dispatch*)))
       (if fn
           (funcall fn result)

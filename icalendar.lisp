@@ -284,6 +284,8 @@
         (destructuring-bind ((year month day)
                              (hours minute second utc))
             start
+          ;; FIXME
+          (declare (ignore utc))
           (stp:append-child
            node
            (make-text-node "start"
@@ -295,6 +297,8 @@
              (destructuring-bind ((year month day)
                                   (hours minute second utc))
                  date-time
+          ;; FIXME
+          (declare (ignore utc))
                (stp:append-child
                 node
                 (make-text-node "end"
@@ -884,6 +888,8 @@
    (destructuring-bind ((year month day)
                         (hours minute second utc))
        (convert-icalendar-date-time-to-xcal string)
+     ;; FIXME
+     (declare (ignore utc))
      (stp:make-text (format nil "~2,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0D"
                             year month day hours minute second)))))
 
