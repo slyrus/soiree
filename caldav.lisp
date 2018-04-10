@@ -51,3 +51,39 @@
                            (("calendar-data" . ,*caldav-xml-namespace*) nil)))))))
     (when response
       (cxml:parse response (stp:make-builder)))))
+
+(defun get-calendar-collection-filter (connection collection)
+  (let ((response
+         (dav-request connection collection :report
+                      (soiree-dav::write-xmls-string
+                       `(("calendar-query" . ,*caldav-xml-namespace*) nil
+                         (("prop" . ,*dav-xml-namespace*) nil
+                          (("getetag" . ,*dav-xml-namespace*) nil)
+                          (("calendar-data" . ,*caldav-xml-namespace*) nil
+                           ;;
+                           ;; it's not clear if we need the stuff in the next form:
+                           #+nil
+                           (("comp" . ,*caldav-xml-namespace*) (("name" "VCALENDAR"))
+                            (("prop" . ,*caldav-xml-namespace*) (("name" "VERSION")))
+                            (("comp" . ,*caldav-xml-namespace*) (("name" "VEVENT"))
+                             (("prop" . ,*caldav-xml-namespace*) (("name" "SUMMARY")))
+                             (("prop" . ,*caldav-xml-namespace*) (("name" "UID")))
+                             (("prop" . ,*caldav-xml-namespace*) (("name" "DTSTART")))
+                             (("prop" . ,*caldav-xml-namespace*) (("name" "DTEND")))
+                             (("prop" . ,*caldav-xml-namespace*) (("name" "DURATION")))
+                             (("prop" . ,*caldav-xml-namespace*) (("name" "RRULE")))
+                             (("prop" . ,*caldav-xml-namespace*) (("name" "EXRULE")))
+                             (("prop" . ,*caldav-xml-namespace*) (("name" "EXDATE")))
+                             (("prop" . ,*caldav-xml-namespace*) (("name" "RECURRENCE-ID"))))
+                            (("comp" . ,*caldav-xml-namespace*) (("name" "VTIMEZONE"))))))
+                         (("filter" . ,*caldav-xml-namespace*) nil
+                          (("comp-filter" . ,*caldav-xml-namespace*)
+                           (("name" "VCALENDAR"))
+                           (("comp-filter" . ,*caldav-xml-namespace*)
+                            (("name" "VEVENT"))
+                            (("time-range" . ,*caldav-xml-namespace*)
+                             (("start" "20180409T000000Z")
+                              ("end" "20180419T000000Z")))))))
+                       :canonical nil :indentation 2))))
+    (when response
+      (cxml:parse response (stp:make-builder)))))
