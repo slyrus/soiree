@@ -22,7 +22,8 @@
 
            #:name?
            #:x-name-line?
-           #:property-line?))
+           #:property-line?
+           #:digits-to-number))
 
 (cl:in-package :soiree-parse)
 
@@ -281,3 +282,7 @@
       (if parsed
           (result parsed)
           (zero)))))
+
+(defun digits-to-number (chars)
+  (reduce (lambda (acc dig) (+ dig (* 10 acc))) chars :initial-value 0))
+

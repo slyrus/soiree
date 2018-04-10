@@ -12,9 +12,6 @@
 (defvar *ical-rng-schema* (cxml-rng:parse-compact *ical-rng-pathname*))
 
 ;; Value type utility functions
-(defun digits-to-number (chars)
-  (reduce (lambda (acc dig) (+ dig (* 10 acc))) chars :initial-value 0))
-
 (defun decimal? ()
   (named-seq?
    (<- int-part (int?))
