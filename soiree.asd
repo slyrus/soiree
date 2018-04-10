@@ -13,7 +13,8 @@
    (:file "utilities")
    (:file "parse")
    (:file "vcard")
-   (:file "icalendar")))
+   (:file "icalendar")
+   (:file "xcal")))
 
 (cl:defpackage #:soiree-config (:export #:*base-directory*))
 
