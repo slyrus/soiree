@@ -1,6 +1,7 @@
 (cl:defpackage #:soiree-xcal
   (:use #:common-lisp #:parser-combinators #:soiree-parse)
-  (:export #:xcal-date-time-to-universal-time))
+  (:export #:xcal-date-to-universal-time
+           #:xcal-date-time-to-universal-time))
 
 (cl:in-package :soiree-xcal)
 
@@ -42,8 +43,13 @@
    (<- time (xcal-time?))
    (list date time)))
 
-(defun xcal-date-time-to-universal-time (xcal-date-time &key (time-zone 0))
+(defun xcal-date-to-universal-time (xcal-date &key (time-zone nil))
+  (destructuring-bind (year month date)
+      (parse-string* (xcal-date?) xcal-date)
+    (apply #'encode-universal-time 0 0 0 date month year (list time-zone))))
+
+(defun xcal-date-time-to-universal-time (xcal-date-time &key (time-zone nil))
   (destructuring-bind ((year month date) (hour minute second utc))
       (parse-string* (xcal-date-time?) xcal-date-time)
-    (encode-universal-time second minute hour date month year (if utc 0 time-zone))))
+    (apply #'encode-universal-time second minute hour date month year (list (if utc 0 time-zone)))))
 
