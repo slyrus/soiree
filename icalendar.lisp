@@ -890,10 +890,16 @@
      (stp:make-text (format nil "~2,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0D"
                             year month day hours minute second)))))
 
-(defun make-date-time-node (element-tag string)
-  (stp:append-child
-   (stp:make-element (string-downcase element-tag) *ical-namespace*)
-   (%make-date-time-node string)))
+(defun make-date-time-node (element-tag string &key tzid)
+  (let ((parent (stp:make-element (string-downcase element-tag) *ical-namespace*)))
+    (when tzid
+      (let ((param-element (stp:make-element "parameters" *ical-namespace*)))
+        (let ((tzid-element (stp:make-element "tzid" *ical-namespace*)))
+          (stp:append-child tzid-element (stp:make-text tzid))
+          (stp:append-child param-element tzid-element))
+        (stp:append-child parent param-element)))
+    (stp:append-child parent (%make-date-time-node string))
+    parent))
 
 (defun %make-utc-node (string)
   (stp:append-child
@@ -910,12 +916,16 @@
 (defun date-time-or-date-node (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group))
-    (let ((value-type
-            (or (caadar (keep "value" params :test #'string-equal :key #'car)))))
-      (cond ((string-equal value-type "DATE")
-             (make-date-node name value))
-            (t
-             (make-date-time-node name value))))))
+    (let ((tzid (caadar (keep "tzid" params :test #'string-equal :key #'car))))
+      (when tzid
+        (print (list 'bogus tzid)))
+      (let ((value-type
+             (or (caadar (keep "value" params :test #'string-equal :key #'car)))))
+        (cond ((string-equal value-type "DATE")
+               (make-date-node name value))
+              (t
+               (apply #'make-date-time-node name value
+                      (if tzid `(:tzid ,tzid)))))))))
 
 (defmacro def-date-time-or-date-property (property-name element-name
                                           parameter-functions)
