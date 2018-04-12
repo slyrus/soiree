@@ -15,7 +15,8 @@
    (:file "vcard")
    (:file "icalendar")
    (:file "xcal")
-   (:file "time")))
+   (:file "time")
+   (:file "calendar")))
 
 (cl:defpackage #:soiree-config (:export #:*base-directory*))
 
