@@ -45,14 +45,79 @@
 ;; icalendar element
 (defelement icalendar)
 
+;; vcalendar element
+(defelement vcalendar)
+
+;; components element
+(defelement components)
+
+(defelement vtimezone)
+
+(defelement daylight)
+
+;; properties element
+(defelement properties)
+
+;; version element
+(defelement version)
+
+;; components element
+(defelement prodid)
+
+;; components element
+(defelement calscale)
+
+(defelement period)
+
+(defelement vevent)
+
+(defelement vtodo)
+
+(defelement vjournal)
+
+(defelement vfreebusy)
+
+(defelement standard)
+
+(defelement valarm)
+
+(defelement parameters)
+
+(defelement text)
+
+(defelement attach)
+
+(defelement geo)
+
+(defelement date)
+
+(defelement date-time)
+
+(defelement tzid)
+
+(defelement utc-offset)
+
+(defelement freebusy)
+
+(defelement tzoffsetfrom)
+
+(defelement tzoffsetto)
+
+(defelement rdate)
+
+(defelement rrule)
+
+(defelement recur)
+
+(defelement trigger)
+
+(defelement request-status)
+
 (defmethod vcalendar ((icalendar icalendar))
   (stp:find-child "vcalendar" icalendar))
 
 (defmethod vcalendar+ ((icalendar icalendar))
   (stp:list-children icalendar))
-
-;; vcalendar element
-(defelement vcalendar)
 
 (defmethod properties ((vcalendar vcalendar))
   (stp:find-child "properties" vcalendar :key #'stp:local-name :test #'equal))
@@ -72,9 +137,6 @@
 (defmethod text ((tzid tzid))
   (stp:find-child "text" tzid :key #'stp:local-name :test #'equal))
 
-;; properties element
-(defelement properties)
-
 (defmethod version ((properties properties))
   (stp:find-child "version" properties :key #'stp:local-name :test #'equal))
 
@@ -83,19 +145,6 @@
 
 (defmethod clascale ((properties properties))
   (stp:find-child "clascale" properties :key #'stp:local-name :test #'equal))
-
-;; components element
-(defelement components)
-
-;; version element
-(defelement version)
-
-;; components element
-(defelement prodid)
-
-;; components element
-(defelement calscale)
-
 
 
 
@@ -363,8 +412,6 @@
 (defun parse-period (string)
   (parse-string* (period?) string))
 
-(defelement period)
-
 (defun make-period-node (string)
   (let ((node (make-period)))
     (let ((parsed (parse-period string)))
@@ -464,8 +511,6 @@
       (when fn
         (funcall fn result)))))
 
-(defelement vevent)
-
 (defun vevent? ()
   (named-seq?
    "BEGIN" ":" "VEVENT" #\Return #\Newline
@@ -535,8 +580,6 @@
       (when fn
         (funcall fn result)))))
 
-(defelement vtodo)
-
 (defun vtodo? ()
   (named-seq?
    "BEGIN" ":" "VTODO" #\Return #\Newline
@@ -600,8 +643,6 @@
       (when fn
         (funcall fn result)))))
 
-(defelement vjournal)
-
 (defun vjournal? ()
   (named-seq?
    "BEGIN" ":" "VJOURNAL" #\Return #\Newline
@@ -644,8 +685,6 @@
                        *vfreebusy-property-dispatch*)))
       (when fn
         (funcall fn result)))))
-
-(defelement vfreebusy)
 
 (defun vfreebusy? ()
   (named-seq?
@@ -702,8 +741,6 @@
       (when fn
         (funcall fn result)))))
 
-(defelement standard)
-
 (defun standardc? ()
   (named-seq?
    "BEGIN" ":" "STANDARD" #\Return #\Newline
@@ -719,8 +756,6 @@
             properties
             :initial-value (make-properties)))))
 
-(defelement daylight)
-
 (defun daylightc? ()
   (named-seq?
    "BEGIN" ":" "DAYLIGHT" #\Return #\Newline
@@ -735,8 +770,6 @@
                     element)))
             properties
             :initial-value (make-properties)))))
-
-(defelement vtimezone)
 
 (defun vtimezone? ()
   (named-seq?
@@ -783,8 +816,6 @@
       (when fn
         (funcall fn result)))))
 
-(defelement valarm)
-
 (defun alarmc? ()
   (named-seq?
    "BEGIN" ":" "VALARM" #\Return #\Newline
@@ -821,8 +852,6 @@
 (defun add-params (param-list params)
   (remove nil (mapcar (lambda (x) (funcall x params)) param-list) :test 'eq))
 
-(defelement parameters)
-
 (defun extract-parameters (params functions)
   (let ((param-element (make-parameters)))
     (let ((param-children (add-params functions params)))
@@ -834,8 +863,6 @@
             (stp:append-child (stp:make-element element-tag *default-namespace*)
                               (stp:make-text x)))
           strings))
-
-(defelement text)
 
 ;; FIXME!!! Check :allowed-values
 (defmacro def-generic-property (property-name element-name
@@ -885,8 +912,6 @@
 ;; 3.8.1 Descriptive Component Properties
 
 ;; 3.8.1.1 Attachment
-(defelement attach)
-
 (defun property-attach (result)
   (destructuring-bind
       (group name params value) result
@@ -925,8 +950,6 @@
   '(altrepparam languageparam) "text")
 
 ;; 3.8.1.6 Geographic Position
-(defelement geo)
-
 (defun property-geo (result)
   (destructuring-bind
       (group name params value)
@@ -996,8 +1019,6 @@
     (format nil "~:[~;-~]~2,'0D:~2,'0D~@[:~2,'0D~]"
             (minusp hour) (abs hour) minute second)))
 
-(defelement date)
-
 (defun make-date-node (element-tag string)
   (stp:append-child
    (stp:make-element (string-downcase element-tag) *ical-namespace*)
@@ -1006,8 +1027,6 @@
     (destructuring-bind (year month day)
         (convert-icalendar-date-to-xcal string)
       (stp:make-text (format nil "~2,'0D-~2,'0D-~2,'0D" year month day))))))
-
-(defelement date-time)
 
 (defun %make-date-time-node (string)
   (stp:append-child
@@ -1020,8 +1039,6 @@
      (stp:make-text (format nil "~2,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0D"
                             year month day hours minute second)))))
 
-(defelement tzid)
-
 (defun make-date-time-node (element-tag string &key tzid)
   (let ((parent (stp:make-element (string-downcase element-tag) *ical-namespace*)))
     (when tzid
@@ -1032,8 +1049,6 @@
         (stp:append-child parent param-element)))
     (stp:append-child parent (%make-date-time-node string))
     parent))
-
-(defelement utc-offset)
 
 (defun %make-utc-node (string)
   (stp:append-child
@@ -1095,9 +1110,6 @@
 (def-generic-property property-duration "duration" nil "duration")
 
 ;; 3.8.2.6 Free/Busy Time
-
-(defelement freebusy)
-
 (defun property-freebusy (result)
   (destructuring-bind
       (group name params value)
@@ -1125,8 +1137,6 @@
 (def-generic-property property-tzname "tzname" '(languageparam) "text")
 
 ;; 3.8.3.3 Time Zone Offset From
-(defelement tzoffsetfrom)
-
 (defun property-tzoffsetfrom (result)
   (destructuring-bind
       (group name params value)
@@ -1139,8 +1149,6 @@
       (stp:append-child node (%make-utc-node value)))))
 
 ;; 3.8.3.4 Time Zone Offset To
-(defelement tzoffsetto)
-
 (defun property-tzoffsetto (result)
   (destructuring-bind
       (group name params value)
@@ -1207,8 +1215,6 @@
 (def-date-time-or-date-property property-exdate "exdate" '(tzidparam))
 
 ;; 3.8.5.2 Recurrence Date/Times
-(defelement rdate)
-
 (defun property-rdate (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))
@@ -1262,9 +1268,6 @@
          (when bysetpos (list (make-text-node "bysetpos" bysetpos)))
          (when wkst (list (make-text-node "wkst" wkst))))))))
 
-(defelement rrule)
-(defelement recur)
-
 (defun property-rrule (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))
@@ -1291,8 +1294,6 @@
 (def-generic-property property-repeat "repeat" nil "integer")
 
 ;; 3.8.6.3 Trigger
-(defelement trigger)
-
 (defun property-trigger (result)
   (destructuring-bind
       (group name params value)
@@ -1331,8 +1332,6 @@
     (list (make-text-node "code" code)
           (make-text-node "description" desc)
           (make-text-node "data" data))))
-
-(defelement request-status)
 
 (defun property-rstatus (result)
   (destructuring-bind (group name params value) result
