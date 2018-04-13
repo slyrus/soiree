@@ -1,7 +1,7 @@
 
 (cl:defpackage :soiree-icalendar
   (:use :common-lisp :parser-combinators :soiree :soiree-parse)
-  (:shadow #:standard #:member))
+  (:shadow #:standard #:member #:method #:make-method #:class #:sequence #:make-sequence))
 
 (cl:in-package :soiree-icalendar)
 
@@ -60,6 +60,17 @@
 (defmethod components ((vcalendar vcalendar))
   (stp:find-child "components" vcalendar :key #'stp:local-name :test #'equal))
 
+(defmethod vtimezone+ ((components components))
+  (stp:filter-children (lambda (x) (equal x "vtimezone")) components :key #'stp:local-name))
+
+(defmethod properties ((vtimezone vtimezone))
+  (stp:find-child "properties" vtimezone :key #'stp:local-name :test #'equal))
+
+(defmethod tzid ((properties properties))
+  (stp:find-child "tzid" properties :key #'stp:local-name :test #'equal))
+
+(defmethod text ((tzid tzid))
+  (stp:find-child "text" tzid :key #'stp:local-name :test #'equal))
 
 ;; properties element
 (defelement properties)
@@ -817,28 +828,40 @@
     (let ((param-children (add-params functions params)))
       (reduce #'stp:append-child param-children :initial-value param-element))))
 
+
+(defun make-text-node-list (element-tag &rest strings)
+  (mapcar (lambda (x)
+            (stp:append-child (stp:make-element element-tag *default-namespace*)
+                              (stp:make-text x)))
+          strings))
+
+(defelement text)
+
 ;; FIXME!!! Check :allowed-values
 (defmacro def-generic-property (property-name element-name
                                 parameter-functions value-node-type
                                 &key multiple-values allowed-values)
-  (declare (ignore allowed-values))
-  `(defun ,property-name (result)
-     (destructuring-bind (group name params value) result
-       (declare (ignore group name))
-       (let ((node (stp:make-element ,element-name *ical-namespace*))
-             (param-element (extract-parameters
-                             params
-                             ,parameter-functions)))
-         (when (plusp (stp:number-of-children param-element))
-           (stp:append-child node param-element))
-         ,(if multiple-values
-              `(reduce #'stp:append-child
-                       (apply #'make-text-node-list ,value-node-type
-                              (split-string value))
-                       :initial-value node)
-              `(stp:append-child
-                node
-                (make-text-node ,value-node-type value)))))))
+  (declare (ignore allowed-values value))
+  `(let ((constructor (defelement ,(intern (string-upcase element-name)))))
+    (defun ,property-name (result)
+      (destructuring-bind (group name params value) result
+        (declare (ignore group name))
+        (let ((node (funcall constructor))
+              (param-element (extract-parameters
+                              params
+                              ,parameter-functions)))
+          (when (plusp (stp:number-of-children param-element))
+            (stp:append-child node param-element))
+          ,(if multiple-values
+               `(reduce #'stp:append-child
+                 (mapcar (lambda (x)
+                           (stp:append-child (make-text)
+                                             (stp:make-text x)))
+                  (split-string value))
+                 :initial-value node)
+               `(stp:append-child
+                 node
+                 (stp:append-child (make-text) (stp:make-text value)))))))))
 
 ;; 3.7 Calendar Properties
 
