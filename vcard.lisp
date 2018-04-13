@@ -352,7 +352,7 @@
 (defun adr (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))
-    (destructuring-bind (pobox ext street locality region code country)
+    (destructuring-bind (&optional pobox ext street locality region code country)
         (split-string value :delimiter #\;)
       (let ((adr-node (stp:make-element "adr" *vcard-namespace*))
             (param-element (extract-parameters
@@ -365,20 +365,28 @@
             adr-node)
         (reduce (lambda (parent child)
                   (stp:append-child parent child))
-                (list (apply #'make-text-nodes "pobox"
-                             (split-string pobox))
+                (list
+                      (apply #'make-text-nodes "pobox"
+                             (when pobox
+                               (split-string pobox)))
                       (apply #'make-text-nodes "ext"
-                             (split-string ext))
+                             (when ext
+                               (split-string ext)))
                       (apply #'make-text-nodes "street"
-                             (split-string street))
+                             (when street
+                               (split-string street)))
                       (apply #'make-text-nodes "locality"
-                             (split-string locality))
+                             (when locality
+                               (split-string locality)))
                       (apply #'make-text-nodes "region"
-                             (split-string region))
+                             (when region
+                               (split-string region)))
                       (apply #'make-text-nodes "code"
-                             (split-string code))
+                             (when code
+                               (split-string code)))
                       (apply #'make-text-nodes "country"
-                             (split-string country)))
+                             (when country
+                               (split-string country))))
                 :initial-value adr-node)))))
 
 ;; 6.4.1 tel
@@ -579,7 +587,7 @@
       (if fn
           (funcall fn result)
           (when (search "X-" name :test #'char-equal :end2 (min 2 (length result)))
-            (progn (format t "~&Unhandled extension result line: ~A~&" result)
+            (progn (warn "~&Unhandled extension result line: ~A~&" result)
                    nil))))))
 
 (defun vcard? ()
