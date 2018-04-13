@@ -1,6 +1,7 @@
 
 (cl:defpackage :soiree-icalendar
-  (:use :common-lisp :parser-combinators :soiree :soiree-parse))
+  (:use :common-lisp :parser-combinators :soiree :soiree-parse)
+  (:shadow #:standard #:member))
 
 (cl:in-package :soiree-icalendar)
 
@@ -10,6 +11,82 @@
   (merge-pathnames #p"icalendar-2.0.rnc" soiree-config:*base-directory*))
 
 (defvar *ical-rng-schema* (cxml-rng:parse-compact *ical-rng-pathname*))
+
+
+
+;;
+;; icalendar classes
+
+;; icalendar-document
+(defclass icalendar-document (stp:document) ())
+
+(defun make-icalendar-document (icalendar)
+  (change-class (stp:make-document icalendar) 'icalendar-document))
+
+(defmethod icalendar ((icalendar-document icalendar-document ))
+  (stp:nth-child 0 icalendar-document)
+
+  #+nil
+  (stp:find-child "icalendar" icalendar-document :key #'stp:local-name :test #'equal))
+
+(defmacro defelement (elt-name)
+  `(progn
+    (defclass ,elt-name (stp:element) ())
+
+    (defun ,(intern (string-upcase (concatenate 'string "make-" (symbol-name elt-name))) *package*) ()
+      (change-class
+       ;; FIXME! Ideally we wouldn't need the coerce here, but we
+       ;; can't just pass a simple-base-string (which is apparently
+       ;; what we get back from symbol-name) to stp:make-element as it
+       ;; wants a proper vector of characters, not base-chars.
+       (stp:make-element ,(coerce (string-downcase (symbol-name elt-name)) 'runes:rod) *ical-namespace*)
+       ',elt-name))))
+
+;; icalendar element
+(defelement icalendar)
+
+(defmethod vcalendar ((icalendar icalendar))
+  (stp:find-child "vcalendar" icalendar))
+
+(defmethod vcalendar+ ((icalendar icalendar))
+  (stp:list-children icalendar))
+
+;; vcalendar element
+(defelement vcalendar)
+
+(defmethod properties ((vcalendar vcalendar))
+  (stp:find-child "properties" vcalendar :key #'stp:local-name :test #'equal))
+
+(defmethod components ((vcalendar vcalendar))
+  (stp:find-child "components" vcalendar :key #'stp:local-name :test #'equal))
+
+
+;; properties element
+(defelement properties)
+
+(defmethod version ((properties properties))
+  (stp:find-child "version" properties :key #'stp:local-name :test #'equal))
+
+(defmethod prodid ((properties properties))
+  (stp:find-child "prodid" properties :key #'stp:local-name :test #'equal))
+
+(defmethod clascale ((properties properties))
+  (stp:find-child "clascale" properties :key #'stp:local-name :test #'equal))
+
+;; components element
+(defelement components)
+
+;; version element
+(defelement version)
+
+;; components element
+(defelement prodid)
+
+;; components element
+(defelement calscale)
+
+
+
 
 ;; Value type utility functions
 (defun decimal? ()
@@ -48,16 +125,17 @@
 (defmacro def-generic-parameter (function-name param-name
                                  &key (node-type "text")
                                       allowed-values)
-  `(defun ,function-name (params)
-     (when-let (param-values
-                (mapcan #'second (keep ,param-name params :test #'string-equal :key #'car)))
-       (reduce (lambda (parent param-value)
-                 (when ,allowed-values
-                   (unless (member param-value ,allowed-values :test #'string=)
-                     (warn "Unknown encoding ~A parameter: ~A" ,param-name param-value)))
-                 (stp:append-child parent (make-text-node ,node-type param-value)))
-               param-values
-               :initial-value (stp:make-element ,param-name *ical-namespace*)))))
+  `(let ((constructor (defelement ,(intern (string-upcase param-name)))))
+    (defun ,function-name (params)
+      (when-let (param-values
+                 (mapcan #'second (keep ,param-name params :test #'string-equal :key #'car)))
+        (reduce (lambda (parent param-value)
+                  (when ,allowed-values
+                    (unless (cl:member param-value ,allowed-values :test #'string=)
+                      (warn "Unknown encoding ~A parameter: ~A" ,param-name param-value)))
+                  (stp:append-child parent (make-text-node ,node-type param-value)))
+                param-values
+                :initial-value (funcall constructor))))))
 
 
 ;; 3.2.1 Alternate Text Representation
@@ -274,8 +352,10 @@
 (defun parse-period (string)
   (parse-string* (period?) string))
 
+(defelement period)
+
 (defun make-period-node (string)
-  (let ((node (cxml-stp:make-element "period" *ical-namespace*)))
+  (let ((node (make-period)))
     (let ((parsed (parse-period string)))
       (destructuring-bind (start end) parsed
         (destructuring-bind ((year month day)
@@ -373,6 +453,8 @@
       (when fn
         (funcall fn result)))))
 
+(defelement vevent)
+
 (defun vevent? ()
   (named-seq?
    "BEGIN" ":" "VEVENT" #\Return #\Newline
@@ -380,7 +462,7 @@
    (<- components (many? (alarmc?)))
    "END" ":" "VEVENT" #\Return #\Newline
    ;; FIXME! We should create DTSTAMP and UID if they don't exist here!
-   (let ((vevent-node (stp:make-element "vevent" *ical-namespace*)))
+   (let ((vevent-node (make-vevent)))
      (stp:append-child
       vevent-node
       (reduce (lambda (element x)
@@ -389,13 +471,13 @@
                       (stp:append-child element x)
                       element)))
               properties
-              :initial-value (stp:make-element "properties" *ical-namespace*)))
+              :initial-value (make-properties)))
      (when components
        (stp:append-child
         vevent-node
         (reduce #'stp:append-child
                 components
-                :initial-value (stp:make-element "components" *ical-namespace*))))
+                :initial-value (make-components))))
      vevent-node)))
 
 ;; 3.6.2 To-do Component
@@ -442,13 +524,15 @@
       (when fn
         (funcall fn result)))))
 
+(defelement vtodo)
+
 (defun vtodo? ()
   (named-seq?
    "BEGIN" ":" "VTODO" #\Return #\Newline
    (<- properties (many? (property-line?)))
    (<- components (many? (alarmc?)))
    "END" ":" "VTODO" #\Return #\Newline
-   (let ((vtodo-node (stp:make-element "vtodo" *ical-namespace*)))
+   (let ((vtodo-node (make-vtodo)))
      (stp:append-child
       vtodo-node
       (reduce (lambda (element x)
@@ -457,13 +541,13 @@
                       (stp:append-child element x)
                       element)))
               properties
-              :initial-value (stp:make-element "properties" *ical-namespace*)))
+              :initial-value (make-properties)))
      (when components
        (stp:append-child
         vtodo-node
         (reduce #'stp:append-child
                 components
-                :initial-value (stp:make-element "components" *ical-namespace*))))
+                :initial-value (make-components))))
      vtodo-node)))
 
 ;; 3.6.3 Journal Component
@@ -505,20 +589,22 @@
       (when fn
         (funcall fn result)))))
 
+(defelement vjournal)
+
 (defun vjournal? ()
   (named-seq?
    "BEGIN" ":" "VJOURNAL" #\Return #\Newline
    (<- properties (many? (property-line?)))
    "END" ":" "VJOURNAL" #\Return #\Newline
    (stp:append-child
-    (stp:make-element "vjournal" *ical-namespace*)
+    (make-vjournal)
     (reduce (lambda (element x)
               (let ((x (handle-vjournal-property-line x)))
                 (if (and x (not (consp x)))
                     (stp:append-child element x)
                     element)))
             properties
-            :initial-value (stp:make-element "properties" *ical-namespace*)))))
+            :initial-value (make-properties)))))
 
 ;; 3.6.4 Free/Busy Component
 
@@ -548,20 +634,22 @@
       (when fn
         (funcall fn result)))))
 
+(defelement vfreebusy)
+
 (defun vfreebusy? ()
   (named-seq?
    "BEGIN" ":" "VFREEBUSY" #\Return #\Newline
    (<- properties (many? (property-line?)))
    "END" ":" "VFREEBUSY" #\Return #\Newline
    (stp:append-child
-    (stp:make-element "vfreebusy" *ical-namespace*)
+    (make-vfreebusy)
     (reduce (lambda (element x)
               (let ((x (handle-vfreebusy-property-line x)))
                 (if (and x (not (consp x)))
                     (stp:append-child element x)
                     element)))
             properties
-            :initial-value (stp:make-element "properties" *ical-namespace*)))))
+            :initial-value (make-properties)))))
 
 ;; 3.6.5 Time Zone Component
 
@@ -603,20 +691,24 @@
       (when fn
         (funcall fn result)))))
 
+(defelement standard)
+
 (defun standardc? ()
   (named-seq?
    "BEGIN" ":" "STANDARD" #\Return #\Newline
    (<- properties (many? (property-line?)))
    "END" ":" "STANDARD" #\Return #\Newline
    (stp:append-child
-    (stp:make-element "standard" *ical-namespace*)
+    (make-standard)
     (reduce (lambda (element x)
               (let ((x (handle-tz-property-line x)))
                 (if (and x (not (consp x)))
                     (stp:append-child element x)
                     element)))
             properties
-            :initial-value (stp:make-element "properties" *ical-namespace*)))))
+            :initial-value (make-properties)))))
+
+(defelement daylight)
 
 (defun daylightc? ()
   (named-seq?
@@ -624,14 +716,16 @@
    (<- properties (many? (property-line?)))
    "END" ":" "DAYLIGHT" #\Return #\Newline
    (stp:append-child
-    (stp:make-element "daylight" *ical-namespace*)
+    (make-daylight)
     (reduce (lambda (element x)
               (let ((x (handle-tz-property-line x)))
                 (if (and x (not (consp x)))
                     (stp:append-child element x)
                     element)))
             properties
-            :initial-value (stp:make-element "properties" *ical-namespace*)))))
+            :initial-value (make-properties)))))
+
+(defelement vtimezone)
 
 (defun vtimezone? ()
   (named-seq?
@@ -648,11 +742,11 @@
                           (stp:append-child element x)
                           element)))
                   properties
-                  :initial-value (stp:make-element "properties" *ical-namespace*))
+                  :initial-value (make-properties))
           (reduce #'stp:append-child
                   components
-                  :initial-value (stp:make-element "components" *ical-namespace*)))
-    :initial-value (stp:make-element "vtimezone" *ical-namespace*))))
+                  :initial-value (make-components)))
+    :initial-value (make-vtimezone))))
 
 ;; 3.6.6 Alarm Component
 
@@ -678,12 +772,14 @@
       (when fn
         (funcall fn result)))))
 
+(defelement valarm)
+
 (defun alarmc? ()
   (named-seq?
    "BEGIN" ":" "VALARM" #\Return #\Newline
    (<- properties (many? (property-line?)))
    "END" ":" "VALARM" #\Return #\Newline
-   (let ((valarm-node (stp:make-element "valarm" *ical-namespace*))
+   (let ((valarm-node (make-valarm))
          (property-node
            (reduce
             (lambda (element x)
@@ -693,12 +789,13 @@
                     element)))
             properties
             :initial-value
-            (stp:make-element "properties" *ical-namespace*))))
+            (make-properties))))
      (stp:append-child valarm-node property-node)
      ;; We need to fix up valarm-node such that if there is a duration
      ;; node, it appears before the repat node!
      (let ((duration (stp:find-child "duration" property-node
-                                     :key #'stp:local-name))
+                                     :key #'stp:local-name
+                                     :test #'equal))
            (repeat (stp:find-child "repeat" property-node
                                    :key #'stp:local-name)))
        (when (and duration repeat)
@@ -713,8 +810,10 @@
 (defun add-params (param-list params)
   (remove nil (mapcar (lambda (x) (funcall x params)) param-list) :test 'eq))
 
+(defelement parameters)
+
 (defun extract-parameters (params functions)
-  (let ((param-element (stp:make-element "parameters" *ical-namespace*)))
+  (let ((param-element (make-parameters)))
     (let ((param-children (add-params functions params)))
       (reduce #'stp:append-child param-children :initial-value param-element))))
 
@@ -763,11 +862,13 @@
 ;; 3.8.1 Descriptive Component Properties
 
 ;; 3.8.1.1 Attachment
+(defelement attach)
+
 (defun property-attach (result)
   (destructuring-bind
       (group name params value) result
     (declare (ignore group name))
-    (let ((node (cxml-stp:make-element "attach" *ical-namespace*))
+    (let ((node (make-attach))
           (param-element
             (extract-parameters params
                                 (list #'fmttypeparam #'encodingparam))))
@@ -801,12 +902,14 @@
   '(altrepparam languageparam) "text")
 
 ;; 3.8.1.6 Geographic Position
+(defelement geo)
+
 (defun property-geo (result)
   (destructuring-bind
       (group name params value)
       result
     (declare (ignore group name params))
-    (let ((node (cxml-stp:make-element "geo" *ical-namespace*)))
+    (let ((node (make-geo)))
       (destructuring-bind (lat long)
           (parse-string*
            (named-seq?
@@ -870,18 +973,22 @@
     (format nil "~:[~;-~]~2,'0D:~2,'0D~@[:~2,'0D~]"
             (minusp hour) (abs hour) minute second)))
 
+(defelement date)
+
 (defun make-date-node (element-tag string)
   (stp:append-child
    (stp:make-element (string-downcase element-tag) *ical-namespace*)
    (stp:append-child
-    (stp:make-element "date" *ical-namespace*)
+    (make-date)
     (destructuring-bind (year month day)
         (convert-icalendar-date-to-xcal string)
       (stp:make-text (format nil "~2,'0D-~2,'0D-~2,'0D" year month day))))))
 
+(defelement date-time)
+
 (defun %make-date-time-node (string)
   (stp:append-child
-   (stp:make-element "date-time" *ical-namespace*)
+   (make-date-time)
    (destructuring-bind ((year month day)
                         (hours minute second utc))
        (convert-icalendar-date-time-to-xcal string)
@@ -890,20 +997,24 @@
      (stp:make-text (format nil "~2,'0D-~2,'0D-~2,'0DT~2,'0D:~2,'0D:~2,'0D"
                             year month day hours minute second)))))
 
+(defelement tzid)
+
 (defun make-date-time-node (element-tag string &key tzid)
   (let ((parent (stp:make-element (string-downcase element-tag) *ical-namespace*)))
     (when tzid
-      (let ((param-element (stp:make-element "parameters" *ical-namespace*)))
-        (let ((tzid-element (stp:make-element "tzid" *ical-namespace*)))
+      (let ((param-element (make-parameters)))
+        (let ((tzid-element (make-tzid)))
           (stp:append-child tzid-element (stp:make-text tzid))
           (stp:append-child param-element tzid-element))
         (stp:append-child parent param-element)))
     (stp:append-child parent (%make-date-time-node string))
     parent))
 
+(defelement utc-offset)
+
 (defun %make-utc-node (string)
   (stp:append-child
-   (stp:make-element "utc-offset" *ical-namespace*)
+   (make-utc-offset)
    (stp:make-text (convert-icalendar-utc-offset-to-xcal string))))
 
 ;; FIXME! Add tz support here!
@@ -961,12 +1072,15 @@
 (def-generic-property property-duration "duration" nil "duration")
 
 ;; 3.8.2.6 Free/Busy Time
+
+(defelement freebusy)
+
 (defun property-freebusy (result)
   (destructuring-bind
       (group name params value)
       result
     (declare (ignore group name))
-    (let ((node (cxml-stp:make-element "freebusy" *ical-namespace*))
+    (let ((node (make-freebusy))
           (param-element (extract-parameters params '(fbtypeparam))))
       (when (plusp (cxml-stp:number-of-children param-element))
         (cxml-stp:append-child node param-element))
@@ -988,24 +1102,28 @@
 (def-generic-property property-tzname "tzname" '(languageparam) "text")
 
 ;; 3.8.3.3 Time Zone Offset From
+(defelement tzoffsetfrom)
+
 (defun property-tzoffsetfrom (result)
   (destructuring-bind
       (group name params value)
       result
     (declare (ignore group name))
-    (let ((node (cxml-stp:make-element "tzoffsetfrom" *ical-namespace*))
+    (let ((node (make-tzoffsetfrom))
           (param-element (extract-parameters params nil)))
       (when (plusp (cxml-stp:number-of-children param-element))
         (cxml-stp:append-child node param-element))
       (stp:append-child node (%make-utc-node value)))))
 
 ;; 3.8.3.4 Time Zone Offset To
+(defelement tzoffsetto)
+
 (defun property-tzoffsetto (result)
   (destructuring-bind
       (group name params value)
       result
     (declare (ignore group name))
-    (let ((node (cxml-stp:make-element "tzoffsetto" *ical-namespace*))
+    (let ((node (make-tzoffsetto))
           (param-element (extract-parameters params nil)))
       (when (plusp (cxml-stp:number-of-children param-element))
         (cxml-stp:append-child node param-element))
@@ -1066,10 +1184,12 @@
 (def-date-time-or-date-property property-exdate "exdate" '(tzidparam))
 
 ;; 3.8.5.2 Recurrence Date/Times
+(defelement rdate)
+
 (defun property-rdate (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))
-    (let ((node (cxml-stp:make-element "rdate" *ical-namespace*))
+    (let ((node (make-rdate))
           (param-element (extract-parameters params '(tzidparam))))
       (when (plusp (cxml-stp:number-of-children param-element))
         (cxml-stp:append-child node param-element))
@@ -1080,7 +1200,7 @@
                (make-date-node "rdate" value))
               ((string-equal value-type "period")
                (stp:append-child
-                (stp:make-element "rdate" *ical-namespace*)
+                (make-rdate)
                 (make-period-node value)))
               (t (make-date-time-node "rdate" value)))))))
 
@@ -1119,10 +1239,13 @@
          (when bysetpos (list (make-text-node "bysetpos" bysetpos)))
          (when wkst (list (make-text-node "wkst" wkst))))))))
 
+(defelement rrule)
+(defelement recur)
+
 (defun property-rrule (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))
-    (let ((node (cxml-stp:make-element "rrule" *ical-namespace*))
+    (let ((node (make-rrule))
           (param-element (extract-parameters params nil)))
       (when (plusp (cxml-stp:number-of-children param-element))
         (cxml-stp:append-child node param-element))
@@ -1131,7 +1254,7 @@
          node
          (reduce #'stp:append-child
                  (parse-value-recur value)
-                 :initial-value (stp:make-element "recur" *ical-namespace*))))
+                 :initial-value (make-recur))))
       node)))
 
 ;; 3.8.6 Alarm Component Properties
@@ -1145,12 +1268,14 @@
 (def-generic-property property-repeat "repeat" nil "integer")
 
 ;; 3.8.6.3 Trigger
+(defelement trigger)
+
 (defun property-trigger (result)
   (destructuring-bind
       (group name params value)
       result
     (declare (ignore group name))
-    (let ((node (cxml-stp:make-element "trigger" *ical-namespace*))
+    (let ((node (make-trigger))
           (param-element (extract-parameters params nil)))
       (when (plusp (cxml-stp:number-of-children param-element))
         (cxml-stp:append-child node param-element))
@@ -1184,10 +1309,12 @@
           (make-text-node "description" desc)
           (make-text-node "data" data))))
 
+(defelement request-status)
+
 (defun property-rstatus (result)
   (destructuring-bind (group name params value) result
     (declare (ignore group name))
-    (let ((node (cxml-stp:make-element "request-status" *ical-namespace*))
+    (let ((node (make-request-status))
           (param-element (extract-parameters params '(languageparam))))
       (when (plusp (cxml-stp:number-of-children param-element))
         (cxml-stp:append-child node param-element))
@@ -1223,7 +1350,7 @@
    (<- properties (many? (property-line?)))
    (<- components (many1? (component?)))
    "END" ":" "VCALENDAR" #\Return #\Newline
-   (let ((vcalendar-node (stp:make-element "vcalendar" *ical-namespace*)))
+   (let ((vcalendar-node (make-vcalendar)))
      (stp:append-child
       vcalendar-node
       (reduce (lambda (element x)
@@ -1232,7 +1359,7 @@
                       (stp:append-child element x)
                       element)))
               properties
-              :initial-value (stp:make-element "properties" *ical-namespace*)))
+              :initial-value (make-properties)))
      (stp:append-child
       vcalendar-node
       (reduce (lambda (element x)
@@ -1241,7 +1368,7 @@
                     element))
               components
               :initial-value
-              (stp:make-element "components" *ical-namespace*))))))
+              (make-components))))))
 
 (defun icalendar? ()
   (many1? (named-seq?
@@ -1251,7 +1378,7 @@
 
 (defun parse-icalendar (str)
   (let ((*default-namespace* *ical-namespace*))
-    (stp:make-document
+    (make-icalendar-document
      (reduce #'stp:append-child
              (parse-string* (icalendar?) str)
-             :initial-value (stp:make-element "icalendar" *ical-namespace*)))))
+             :initial-value (make-icalendar)))))
