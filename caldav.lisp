@@ -82,7 +82,7 @@
                            (("comp-filter" . ,*caldav-xml-namespace*)
                             (("name" "VEVENT"))
                             (("time-range" . ,*caldav-xml-namespace*)
-                             (("start" "20180409T000000Z")
+                             (("start" "20180413T000000Z")
                               ("end" "20180419T000000Z")))))))
                        :canonical nil :indentation 2))))
     (when response
